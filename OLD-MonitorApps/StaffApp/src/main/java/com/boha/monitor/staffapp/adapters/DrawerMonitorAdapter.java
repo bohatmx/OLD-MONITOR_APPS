@@ -84,7 +84,13 @@ public class DrawerMonitorAdapter extends ArrayAdapter<String> {
         if (p.equalsIgnoreCase(ctx.getString(R.string.profile))) {
             item.icon.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_action_add_person));
         }
+        if (p.equalsIgnoreCase(ctx.getString(com.boha.monitor.staffapp.R.string.staff))) {
+            item.icon.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_action_add_person));
+        }
 
+        if (p.equalsIgnoreCase(ctx.getString(com.boha.monitor.staffapp.R.string.projects_on_map))) {
+            item.icon.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_action_globe));
+        }
         if (darkColor != 0) {
             item.icon.setColorFilter(darkColor, PorterDuff.Mode.SRC_IN);
         }

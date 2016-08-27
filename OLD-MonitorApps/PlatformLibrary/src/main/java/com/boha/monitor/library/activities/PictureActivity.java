@@ -167,7 +167,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         Log.d(LOG, "@@@@@@ onResume...........");
         super.onResume();
         if (currentThumbFile != null) {
-            Log.w(LOG,"onResume currentThumbFile size: " + currentThumbFile.length());
+            Log.w(LOG, "onResume currentThumbFile size: " + currentThumbFile.length());
             Picasso.with(ctx).load(currentThumbFile).into(imageView);
         }
 
@@ -185,12 +185,12 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         String path = savedInstanceState.getString("thumbPath");
         if (path != null) {
             currentThumbFile = new File(path);
-            Log.d(LOG,"onRestoreInstanceState currentThumbFile: " + currentThumbFile.length());
+            Log.d(LOG, "onRestoreInstanceState currentThumbFile: " + currentThumbFile.length());
         }
         String path2 = savedInstanceState.getString("photoFile");
         if (path2 != null) {
             photoFile = new File(path2);
-            Log.d(LOG,"onRestoreInstanceState photoFile: " + photoFile.length());
+            Log.d(LOG, "onRestoreInstanceState photoFile: " + photoFile.length());
         }
         double lat = savedInstanceState.getDouble("latitude");
         double lng = savedInstanceState.getDouble("longitude");
@@ -260,12 +260,13 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
                             if (location != null) {
                                 boolean locationIsWithin = Util.locationIsWithin(pLoc,
                                         location, PROXIMITY_LIMIT);
-                                if (locationIsWithin) {
-                                    new PhotoTask().execute();
-                                } else {
-                                    Util.showErrorToast(ctx,
-                                            "You seem to be more than "+PROXIMITY_LIMIT+" metres away from the project. Picture cannot be taken.");
-                                }
+                                new PhotoTask().execute();
+//                                if (locationIsWithin) {
+//                                    new PhotoTask().execute();
+//                                } else {
+//                                    Util.showErrorToast(ctx,
+//                                            "You seem to be more than "+PROXIMITY_LIMIT+" metres away from the project. Picture cannot be taken.");
+//                                }
                             } else {
                                 Util.showErrorToast(ctx, "Your GPS location is currently undefined");
                             }
@@ -287,7 +288,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
                 + " - " + new Date().toString());
         if (loc.getAccuracy() <= ACCURACY_THRESHOLD) {
             this.location = loc;
-            Log.e(LOG,"device location updated, accuracy: " + loc.getAccuracy());
+            Log.e(LOG, "device location updated, accuracy: " + loc.getAccuracy());
 
         }
     }
@@ -334,6 +335,19 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     @Override
     public void onConnected(Bundle bundle) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
         location = LocationServices.FusedLocationApi.getLastLocation(
                 googleApiClient);
         if (location != null)

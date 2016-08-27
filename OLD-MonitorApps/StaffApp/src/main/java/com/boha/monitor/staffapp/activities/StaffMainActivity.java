@@ -22,7 +22,6 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.view.GravityCompat;
 import android.support.v4.view.PagerTitleStrip;
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.DrawerLayout;
@@ -40,7 +39,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.boha.monitor.library.activities.GPSActivity;
-import com.boha.monitor.library.activities.DeviceListActivity;
 import com.boha.monitor.library.activities.PhotoListActivity;
 import com.boha.monitor.library.activities.PictureActivity;
 import com.boha.monitor.library.activities.ProfilePhotoActivity;
@@ -71,10 +69,10 @@ import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.DepthPageTransformer;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
-import com.boha.monitor.library.util.Statics;
 import com.boha.monitor.library.util.ThemeChooser;
 import com.boha.monitor.library.util.Util;
 import com.boha.monitor.staffapp.R;
+import com.boha.monitor.staffapp.fragments.NavigationDrawerFragment;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -86,6 +84,8 @@ import java.util.Date;
 import java.util.List;
 
 import hugo.weaving.DebugLog;
+
+import static com.boha.monitor.library.activities.ProjectMapActivity.MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION;
 
 /**
  * This class is the main activity that receives control from
@@ -104,6 +104,7 @@ public class StaffMainActivity extends AppCompatActivity implements
         ProjectListFragment.ProjectListFragmentListener,
         SimpleMessageFragment.SimpleMessageFragmentListener,
         LocationListener,
+        NavigationDrawerFragment.NavigationDrawerListener,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
 
@@ -117,16 +118,18 @@ public class StaffMainActivity extends AppCompatActivity implements
 
     @Override
     public void onResume() {
-        Log.w(LOG, "++++++++ ############## onResume - will get cache data");
+        Log.w(TAG, "++++++++ ############## onResume - will get cache data");
         super.onResume();
         if (navImage != null) {
             navImage.setImageDrawable(Util.getRandomBackgroundImage(ctx));
         } else {
-            Log.e(LOG, "navImage is null");
+            Log.e(TAG, "navImage is null");
         }
         getCache();
 
     }
+
+    NavigationDrawerFragment mNavigationDrawerFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -143,57 +146,20 @@ public class StaffMainActivity extends AppCompatActivity implements
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_staff_main);
 
-        actionBar = getSupportActionBar();
-        actionBar.setHomeAsUpIndicator(R.drawable.ic_menu);
-        actionBar.setDisplayHomeAsUpEnabled(true);
-        actionBar.setLogo(R.drawable.ic_action_globe);
-
-
-        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        navigationView = (NavigationView) findViewById(R.id.nav_view);
-
-        navImage = (ImageView) navigationView.findViewById(R.id.NAVHEADER_image);
-        navText = (TextView) navigationView.findViewById(R.id.NAVHEADER_text);
-        if (navText != null) {
-            navText.setText(SharedUtil.getCompanyStaff(ctx).getFullName());
-        }
-        try {
-//            Statics.setRobotoFontLight(getApplicationContext(), navText);
-//            Drawable globe = ContextCompat.getDrawable(ctx, R.drawable.ic_action_globe);
-//            globe.setColorFilter(themeDarkColor, PorterDuff.Mode.SRC_IN);
-//            navigationView.getMenu().getItem(0).setIcon(globe);
-//
-//            Drawable face = ContextCompat.getDrawable(ctx, R.drawable.ic_action_face);
-//            face.setColorFilter(themeDarkColor, PorterDuff.Mode.SRC_IN);
-//            navigationView.getMenu().getItem(1).setIcon(face);
-//
-//            Drawable map = ContextCompat.getDrawable(ctx, R.drawable.ic_action_map);
-//            map.setColorFilter(themeDarkColor, PorterDuff.Mode.SRC_IN);
-//            navigationView.getMenu().getItem(2).setIcon(map);
-//
-//
-//            navigationView.getMenu().getItem(3).getSubMenu().getItem(0).setIcon(face);
-//            navigationView.getMenu().getItem(3).getSubMenu().getItem(1).setIcon(face);
-
-        } catch (Exception e) {
-            Log.e(LOG, "Problem colorizing menu items", e);
-        }
-
+        mNavigationDrawerFragment = (NavigationDrawerFragment)
+                getSupportFragmentManager().findFragmentById(R.id.navigation_drawer);
+        mNavigationDrawerFragment.setPrimaryDarkColor(themeDarkColor);
+        mNavigationDrawerFragment.setPrimaryColor(themePrimaryColor);
+        logo = R.drawable.ic_action_pin;
+        //
+        mNavigationDrawerFragment.setUp(R.id.navigation_drawer,
+                (DrawerLayout) findViewById(R.id.drawer_layout), NavigationDrawerFragment.FROM_MAIN);
 
         mPager = (ViewPager) findViewById(R.id.viewpager);
         mPager.setOffscreenPageLimit(4);
         PagerTitleStrip strip = (PagerTitleStrip) mPager.findViewById(R.id.pager_title_strip);
         strip.setVisibility(View.GONE);
         strip.setBackgroundColor(themeDarkColor);
-
-//        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-//        fab.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                Snackbar.make(view, "Here's a Snackbar", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
-//            }
-//        });
 
         googleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -209,79 +175,22 @@ public class StaffMainActivity extends AppCompatActivity implements
             window.setNavigationBarColor(themeDarkColor);
         }
 
-        setMenuDestinations();
-        mDrawerLayout.openDrawer(GravityCompat.START);
-
         Util.setCustomActionBar(getApplicationContext(), getSupportActionBar(),
                 SharedUtil.getCompany(ctx).getCompanyName(), "Project Monitoring",
                 ContextCompat.getDrawable(getApplicationContext(), com.boha.platform.library.R.drawable.glasses48));
-
+        getCache();
     }
 
-    private void setMenuDestinations() {
 
-        navigationView.setNavigationItemSelectedListener(new NavigationView.OnNavigationItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(MenuItem menuItem) {
-
-                mDrawerLayout.closeDrawers();
-                if (menuItem.getItemId() == R.id.nav_project) {
-                    mPager.setCurrentItem(0, true);
-                    return true;
-                }
-                if (menuItem.getItemId() == R.id.nav_messaging) {
-                    mPager.setCurrentItem(3, true);
-                    return true;
-                }
-
-                if (menuItem.getItemId() == R.id.nav_profile) {
-                    mPager.setCurrentItem(4, true);
-                    return true;
-                }
-                if (menuItem.getItemId() == R.id.nav_staff_list) {
-                    mPager.setCurrentItem(1, true);
-                    return true;
-                }
-                if (menuItem.getItemId() == R.id.nav_monitors) {
-                    mPager.setCurrentItem(2, true);
-                    return true;
-                }
-
-                if (menuItem.getItemId() == R.id.nav_projectMaps) {
-                    List<ProjectDTO> list = getProjectsLocationConfirmed();
-                    if (!list.isEmpty()) {
-                        Intent w = new Intent(ctx, ProjectMapActivity.class);
-                        w.putExtra("type", ProjectMapActivity.STAFF);
-                        ResponseDTO r = new ResponseDTO();
-                        r.setProjectList(list);
-                        w.putExtra("projects", r);
-                        startActivity(w);
-                        return true;
-                    } else {
-                        Util.showToast(getApplicationContext(), "Projects have not been located via GPS");
-                    }
-
-                }
-                if (menuItem.getItemId() == R.id.nav_devices) {
-                    Intent m = new Intent(ctx, DeviceListActivity.class);
-                    startActivity(m);
-                }
-
-
-                return false;
-            }
-        });
-
-    }
-
+    List<ProjectDTO> projectsList;
     private List<ProjectDTO> getProjectsLocationConfirmed() {
-        List<ProjectDTO> list = new ArrayList<>();
+        projectsList = new ArrayList<>();
         for (ProjectDTO m : response.getProjectList()) {
             if (m.getLocationConfirmed() != null) {
-                list.add(m);
+                projectsList.add(m);
             }
         }
-        return list;
+        return projectsList;
     }
 
     @DebugLog
@@ -291,6 +200,7 @@ public class StaffMainActivity extends AppCompatActivity implements
             public void onFileDataDeserialized(ResponseDTO r) {
                 response = r;
                 if (!response.getProjectList().isEmpty()) {
+                    getProjectsLocationConfirmed();
                     buildPages();
                 } else {
                     getRemoteStaffData(true);
@@ -418,22 +328,47 @@ public class StaffMainActivity extends AppCompatActivity implements
 
     @DebugLog
     protected void startLocationUpdates() {
-        Log.d(LOG, "### startLocationUpdates ....");
+        Log.d(TAG, "### startLocationUpdates ....");
         if (googleApiClient.isConnected()) {
             mRequestingLocationUpdates = true;
+            int permissionCheck = ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION);
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+                return;
+            }
             LocationServices.FusedLocationApi.requestLocationUpdates(
                     googleApiClient, mLocationRequest, this);
-            Log.d(LOG, "## GoogleApiClient connected, requesting location updates ...");
+            Log.d(TAG, "## GoogleApiClient connected, requesting location updates ...");
         } else {
-            Log.e(LOG, "------- GoogleApiClient is NOT connected, not sure where we are...");
+            Log.e(TAG, "------- GoogleApiClient is NOT connected, not sure where we are...");
             googleApiClient.connect();
 
         }
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startLocationUpdates();
+
+                } else {
+                    throw new UnsupportedOperationException();
+                }
+                return;
+            }
+        }
+    }
+
     @DebugLog
     protected void stopLocationUpdates() {
-        Log.e(LOG, "### stopLocationUpdates ...");
+        Log.e(TAG, "### stopLocationUpdates ...");
         if (googleApiClient.isConnected()) {
             LocationServices.FusedLocationApi.removeLocationUpdates(
                     googleApiClient, this);
@@ -467,27 +402,19 @@ public class StaffMainActivity extends AppCompatActivity implements
             return true;
         }
 
-        if (id == android.R.id.home) {
-            if (mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
-                mDrawerLayout.closeDrawers();
-            } else {
-                mDrawerLayout.openDrawer(GravityCompat.START);
-            }
-            return true;
-        }
         return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onSaveInstanceState(Bundle b) {
-        Log.w(LOG, "onSaveInstanceState");
+        Log.w(TAG, "onSaveInstanceState");
         b.putSerializable("selectedProject", selectedProject);
         super.onSaveInstanceState(b);
     }
 
     @Override
     public void onRestoreInstanceState(Bundle b) {
-        Log.w(LOG, "onRestoreInstanceState");
+        Log.w(TAG, "onRestoreInstanceState");
         selectedProject = (ProjectDTO) b.getSerializable("selectedProject");
         super.onRestoreInstanceState(b);
     }
@@ -495,12 +422,12 @@ public class StaffMainActivity extends AppCompatActivity implements
     @Override
     @DebugLog
     public void onStart() {
-        Log.d(LOG,
+        Log.d(TAG,
                 "## onStart - GoogleApiClient connecting ... ");
         if (googleApiClient != null) {
             googleApiClient.connect();
         }
-        Log.i(LOG, "## onStart Bind to PhotoUploadService, RequestService");
+        Log.i(TAG, "## onStart Bind to PhotoUploadService, RequestService");
         Intent intent = new Intent(this, PhotoUploadService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
@@ -515,9 +442,9 @@ public class StaffMainActivity extends AppCompatActivity implements
         super.onStop();
         if (googleApiClient != null) {
             googleApiClient.disconnect();
-            Log.e(LOG, "### onStop - locationClient disconnecting ");
+            Log.e(TAG, "### onStop - locationClient disconnecting ");
         }
-        Log.e(LOG, "## onStop unBind from PhotoUploadService, RequestService");
+        Log.e(TAG, "## onStop unBind from PhotoUploadService, RequestService");
         if (mBound) {
             unbindService(mConnection);
             mBound = false;
@@ -532,7 +459,7 @@ public class StaffMainActivity extends AppCompatActivity implements
     @Override
     @DebugLog
     public void onConnected(Bundle bundle) {
-        Log.i(LOG,
+        Log.i(TAG,
                 "+++  GoogleApiClient onConnected() ...");
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
@@ -560,7 +487,7 @@ public class StaffMainActivity extends AppCompatActivity implements
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.d(LOG, "onLocationChanged " + location.getLatitude()
+        Log.d(TAG, "onLocationChanged " + location.getLatitude()
                 + " " + location.getLongitude() + " " + location.getAccuracy());
 
         if (location.getAccuracy() <= ACCURACY_THRESHOLD) {
@@ -570,7 +497,7 @@ public class StaffMainActivity extends AppCompatActivity implements
 
             if (directionRequired) {
                 directionRequired = false;
-                Log.i(LOG, "startDirectionsMap ..........");
+                Log.i(TAG, "startDirectionsMap ..........");
                 String url = "http://maps.google.com/maps?saddr="
                         + mLocation.getLatitude() + "," + mLocation.getLongitude()
                         + "&daddr=" + selectedProject.getLatitude() + "," + selectedProject.getLongitude() + "&mode=driving";
@@ -683,11 +610,11 @@ public class StaffMainActivity extends AppCompatActivity implements
     private void refreshProjectStatus() {
         RequestDTO w = new RequestDTO(RequestDTO.GET_PROJECT_STATUS_PHOTOS);
         w.setProjectID(selectedProject.getProjectID());
-        Log.w(LOG,"refreshProjectStatus sending request ...");
+        Log.w(TAG, "refreshProjectStatus sending request ...");
         NetUtil.sendRequest(ctx, w, new NetUtil.NetUtilListener() {
             @Override
             public void onResponse(ResponseDTO response) {
-                Log.i(LOG,"refreshProjectStatus onResponse");
+                Log.i(TAG, "refreshProjectStatus onResponse");
                 selectedProject.setPhotoUploadList(response.getPhotoUploadList());
                 selectedProject.setProjectTaskList(response.getProjectTaskList());
                 projectListFragment.refreshProject(selectedProject);
@@ -737,7 +664,7 @@ public class StaffMainActivity extends AppCompatActivity implements
     @Override
     @DebugLog
     public void onActivityResult(int reqCode, final int resCode, Intent data) {
-        Log.d(LOG, "onActivityResult reqCode " + reqCode + " resCode " + resCode);
+        Log.d(TAG, "onActivityResult reqCode " + reqCode + " resCode " + resCode);
         switch (reqCode) {
             case REQUEST_CAMERA:
                 if (resCode == RESULT_OK) {
@@ -748,9 +675,9 @@ public class StaffMainActivity extends AppCompatActivity implements
             case REQUEST_STATUS_UPDATE:
                 if (resCode == RESULT_OK) {
                     boolean statusCompleted =
-                            data.getBooleanExtra("statusCompleted",false);
+                            data.getBooleanExtra("statusCompleted", false);
                     if (statusCompleted) {
-                        Log.e(LOG, "StaffMainActivity statusCompleted, getting refreshed");
+                        Log.e(TAG, "StaffMainActivity statusCompleted, getting refreshed");
 //                        getRemoteStaffData(true);
                         refreshProjectStatus();
                     }
@@ -760,7 +687,7 @@ public class StaffMainActivity extends AppCompatActivity implements
                 if (resCode == RESULT_OK) {
                     PhotoUploadDTO x = (PhotoUploadDTO) data.getSerializableExtra("photo");
                     SharedUtil.savePhoto(getApplicationContext(), x);
-                    Log.e(LOG, "photo returned uri: " + x.getUri());
+                    Log.e(TAG, "photo returned uri: " + x.getUri());
                     staffProfileFragment.setPicture(x);
                 }
                 break;
@@ -988,6 +915,23 @@ public class StaffMainActivity extends AppCompatActivity implements
         SharedUtil.saveLastProjectID(ctx, project.getProjectID());
     }
 
+    @Override
+    public void onDestinationSelected(int position, String text) {
+        Log.w(TAG, "onDestinationSelected: " + text );
+
+        if (text.equalsIgnoreCase(ctx.getString(R.string.projects_on_map))) {
+
+            Intent m = new Intent(this, ProjectMapActivity.class);
+            ResponseDTO r = new ResponseDTO();
+            r.setProjectList(projectsList);
+            m.putExtra("projects", r);
+            startActivity(m);
+            return;
+        }
+        mPager.setCurrentItem(position, true);
+
+    }
+
     /**
      * Adapter to manage fragments in view pager
      */
@@ -1038,19 +982,19 @@ public class StaffMainActivity extends AppCompatActivity implements
         @Override
         public void onServiceConnected(ComponentName className,
                                        IBinder service) {
-            Log.w(LOG, "## RequestSyncService ServiceConnection onServiceConnected");
+            Log.w(TAG, "## RequestSyncService ServiceConnection onServiceConnected");
             RequestSyncService.LocalBinder binder = (RequestSyncService.LocalBinder) service;
             rService = binder.getService();
             rBound = true;
             rService.startSyncCachedRequests(new RequestSyncService.RequestSyncListener() {
                 @Override
                 public void onTasksSynced(int goodResponses, int badResponses) {
-                    Log.i(LOG, "## onTasksSynced, goodResponses: " + goodResponses + " badResponses: " + badResponses);
+                    Log.i(TAG, "## onTasksSynced, goodResponses: " + goodResponses + " badResponses: " + badResponses);
                 }
 
                 @Override
                 public void onError(String message) {
-                    Log.e(LOG, "Error with sync: " + message);
+                    Log.e(TAG, "Error with sync: " + message);
                 }
             });
 
@@ -1058,7 +1002,7 @@ public class StaffMainActivity extends AppCompatActivity implements
 
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
-            Log.w(LOG, "## RequestSyncService onServiceDisconnected");
+            Log.w(TAG, "## RequestSyncService onServiceDisconnected");
             mBound = false;
         }
     };
@@ -1068,27 +1012,27 @@ public class StaffMainActivity extends AppCompatActivity implements
         @Override
         public void onServiceConnected(ComponentName className,
                                        IBinder service) {
-            Log.w(LOG, "## PhotoUploadService ServiceConnection onServiceConnected");
+            Log.w(TAG, "## PhotoUploadService ServiceConnection onServiceConnected");
             PhotoUploadService.LocalBinder binder = (PhotoUploadService.LocalBinder) service;
             mService = binder.getService();
             mBound = true;
             mService.uploadCachedPhotos(new PhotoUploadService.UploadListener() {
                 @Override
                 public void onUploadsComplete(List<PhotoUploadDTO> list) {
-                    Log.w(LOG, "$$$ onUploadsComplete, list: " + list.size());
+                    Log.w(TAG, "$$$ onUploadsComplete, list: " + list.size());
                 }
             });
         }
 
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
-            Log.w(LOG, "## PhotoUploadService onServiceDisconnected");
+            Log.w(TAG, "## PhotoUploadService onServiceDisconnected");
             mBound = false;
         }
     };
 
 
-    static final String LOG = StaffMainActivity.class.getSimpleName();
+    static final String TAG = StaffMainActivity.class.getSimpleName();
     static final int ACCURACY_THRESHOLD = 20;
     private DrawerLayout mDrawerLayout;
     StaffPagerAdapter adapter;

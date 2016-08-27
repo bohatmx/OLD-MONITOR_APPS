@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.annotation.RequiresPermission;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
@@ -317,7 +316,6 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     private TextView txtTime;
     static final SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
-    @RequiresPermission
     private void processRequest() {
 
         btnSubmit.setEnabled(false);
@@ -343,7 +341,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
         projectTaskStatus.setTaskStatusType(taskStatusType);
         projectTaskStatus.setStatusDate(new Date().getTime());
         projectTaskStatus.setDateUpdated(new Date().getTime());
-        projectTaskStatus.setProjectTask(pt);
+        projectTaskStatus.setProjectTaskID(projectTask.getProjectTaskID());
         //
         final RequestDTO request = new RequestDTO(RequestDTO.ADD_PROJECT_TASK_STATUS);
         request.setProjectTaskStatus(projectTaskStatus);

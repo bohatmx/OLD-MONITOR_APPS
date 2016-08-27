@@ -260,6 +260,7 @@ public class ProjectMapActivity extends AppCompatActivity
         setProjectMarkers();
 
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String permissions[], int[] grantResults) {
@@ -554,7 +555,8 @@ public class ProjectMapActivity extends AppCompatActivity
     protected void onStop() {
         Log.w(LOG, "############## onStop stopping google service clients");
         try {
-            mGoogleApiClient.disconnect();
+            if (mGoogleApiClient != null)
+                mGoogleApiClient.disconnect();
         } catch (Exception e) {
             Log.e(LOG, "Failed to Stop something", e);
         }

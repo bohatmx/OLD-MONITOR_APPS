@@ -8,4 +8,6 @@
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="title_activity_staff_drawer">StaffDrawerActivity</string>
     <string name="change_colors">Change Colours</string>
+    <string name="staff">Staff</string>
+    <string name="projects_on_map">Projects on Map</string>
 </resources>

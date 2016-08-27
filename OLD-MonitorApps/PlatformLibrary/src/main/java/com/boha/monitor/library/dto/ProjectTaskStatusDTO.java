@@ -7,6 +7,7 @@
 package com.boha.monitor.library.dto;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  *
@@ -16,12 +17,13 @@ public class ProjectTaskStatusDTO implements Serializable, Comparable<ProjectTas
     private static final long serialVersionUID = 1L;
     private Integer projectTaskStatusID;
     private Long statusDate;
-    private Long dateUpdated,localID;
-    private ProjectTaskDTO projectTask;
+    private Long dateUpdated;
+    private Integer projectTaskID;
     private TaskStatusTypeDTO taskStatusType;
     private Integer staffID;
     private Integer monitorID;
-    private String staffName, monitorName;
+    private String staffName, monitorName, taskName;
+    private List<PhotoUploadDTO> photoUploadList;
 
     public ProjectTaskStatusDTO() {
     }
@@ -50,20 +52,28 @@ public class ProjectTaskStatusDTO implements Serializable, Comparable<ProjectTas
         this.monitorName = monitorName;
     }
 
-    public Long getLocalID() {
-        return localID;
+    public Integer getProjectTaskID() {
+        return projectTaskID;
     }
 
-    public void setLocalID(Long localID) {
-        this.localID = localID;
+    public void setProjectTaskID(Integer projectTaskID) {
+        this.projectTaskID = projectTaskID;
     }
 
-    public ProjectTaskDTO getProjectTask() {
-        return projectTask;
+    public String getTaskName() {
+        return taskName;
     }
 
-    public void setProjectTask(ProjectTaskDTO projectTask) {
-        this.projectTask = projectTask;
+    public void setTaskName(String taskName) {
+        this.taskName = taskName;
+    }
+
+    public List<PhotoUploadDTO> getPhotoUploadList() {
+        return photoUploadList;
+    }
+
+    public void setPhotoUploadList(List<PhotoUploadDTO> photoUploadList) {
+        this.photoUploadList = photoUploadList;
     }
 
     public TaskStatusTypeDTO getTaskStatusType() {
