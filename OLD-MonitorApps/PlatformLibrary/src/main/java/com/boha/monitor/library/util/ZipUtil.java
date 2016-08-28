@@ -118,7 +118,7 @@ public class ZipUtil {
 //    public static void unpack(ByteBuffer bb, WebSocketUtil.WebSocketListener listener) throws ZipException {
 //        //notify photoCacheListener
 //        ResponseDTO response = unpackBytes(bb);
-//        Log.e(LOG, "##### unpack - telling photoCacheListener that response object is ready after unpack");
+//        Log.e(TAG, "##### unpack - telling photoCacheListener that response object is ready after unpack");
 //        listener.onMessage(response);
 //    }
 

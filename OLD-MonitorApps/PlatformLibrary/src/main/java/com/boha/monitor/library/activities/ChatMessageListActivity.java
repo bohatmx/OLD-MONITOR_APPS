@@ -8,9 +8,7 @@ import android.view.MenuItem;
 import com.boha.monitor.library.dto.ChatDTO;
 import com.boha.monitor.library.dto.ChatMessageDTO;
 import com.boha.monitor.library.dto.ProjectDTO;
-import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.fragments.ChatMessageListFragment;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.platform.library.R;
 
 
@@ -35,31 +33,7 @@ public class ChatMessageListActivity extends AppCompatActivity {
             chatMessageListFragment.setProject(project);
             return;
         }
-        CacheUtil.getCachedData(getApplicationContext(), CacheUtil.CACHE_DATA, new CacheUtil.CacheUtilListener() {
-            @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                if (response.getCompany() != null) {
-//                    for (ProjectDTO f : response.getCompany().getProjectList()) {
-//                        if (chatMessage.getProjectID().intValue() == f.getProjectID().intValue()) {
-//                            project = f;
-//                            chatMessageListFragment.setChatID(chatMessage.getChatID());
-//                            chatMessageListFragment.setProject(project);
-//                            break;
-//                        }
-//                    }
-                }
-            }
 
-            @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
-
-            }
-        });
     }
 
     public void refreshMessages() {

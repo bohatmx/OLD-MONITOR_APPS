@@ -4,6 +4,7 @@ import android.app.IntentService;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.boha.monitor.library.dto.PhotoUploadDTO;
@@ -40,13 +41,13 @@ public class PhotoUploadService extends IntentService {
     }
 
     UploadListener uploadListener;
-    public static final String JSON_PHOTO = "photos.json";
+    public static final String JSON_PHOTO = "photos.json", BROADCAST_PHOTO_UPLOADED = "BROADCAST_PHOTO_UPLOADED";
 
     public void uploadCachedPhotos(UploadListener listener) {
         uploadListener = listener;
-        Log.d(LOG, "#### uploadCachedPhotos, getting cached photos - will start uploads if wifi is up");
+        Log.d(TAG, "#### uploadCachedPhotos, getting cached photos - will start uploads if wifi is up");
         if (WebCheck.checkNetworkAvailability(getApplicationContext()).isNetworkUnavailable()) {
-            Log.e(LOG, "--- No Network: boolean = isNetworkUnavailable");
+            Log.e(TAG, "--- No Network: boolean = isNetworkUnavailable");
             return;
         }
 
@@ -62,7 +63,7 @@ public class PhotoUploadService extends IntentService {
                     list = response.getPhotoUploadList();
 
                     if (list.isEmpty()) {
-                        Log.w(LOG, "--- no cached photos for upload");
+                        Log.w(TAG, "--- no cached photos for upload");
                         if (uploadListener != null)
                             uploadListener.onUploadsComplete(new ArrayList<PhotoUploadDTO>());
                         return;
@@ -79,15 +80,15 @@ public class PhotoUploadService extends IntentService {
                             uploadListener.onUploadsComplete(new ArrayList<PhotoUploadDTO>());
                         return;
                     } else {
-                        Log.e(LOG,"### ...pending photo uploads: " + pending);
+                        Log.e(TAG,"### ...pending photo uploads: " + pending);
                     }
                     index = 0;
                     controlUploads();
                 } catch (FileNotFoundException e) {
-                    Log.w(LOG, "############# photo cache file not found. possibly virgin trip");
+                    Log.w(TAG, "############# photo cache file not found. possibly virgin trip");
 
                 } catch (IOException e) {
-                    Log.e(LOG, "Failed", e);
+                    Log.e(TAG, "Failed", e);
                 }
             }
         });
@@ -109,7 +110,7 @@ public class PhotoUploadService extends IntentService {
 
         }
         sb.append("photos uploaded: " + up + " pending: " + not);
-        Log.i(LOG, sb.toString());
+        Log.i(TAG, sb.toString());
     }
 
 
@@ -118,7 +119,7 @@ public class PhotoUploadService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        Log.w(LOG, "## PhotoUploadService onHandleIntent .... starting service");
+        Log.w(TAG, "## PhotoUploadService onHandleIntent .... starting service");
 
         if (intent != null) {
             PhotoCacheUtil.getCachedPhotos(getApplicationContext(), new PhotoCacheUtil.PhotoCacheListener() {
@@ -160,6 +161,11 @@ public class PhotoUploadService extends IntentService {
             }
 
         } else {
+            LocalBroadcastManager bm = LocalBroadcastManager.getInstance(getApplicationContext());
+            Intent m = new Intent(BROADCAST_PHOTO_UPLOADED);
+            m.putExtra("uploaded", uploadedList.size());
+            bm.sendBroadcastSync(m);
+            Log.d(TAG,"#############.....................Broadcast about photo sent");
             if (uploadListener != null) {
                 uploadListener.onUploadsComplete(uploadedList);
             }
@@ -169,11 +175,12 @@ public class PhotoUploadService extends IntentService {
 
 
     private void executeUpload(final PhotoUploadDTO dto) {
-//        Log.d(LOG, "** executeUpload, projectID: " + dto.getProjectID());
+//        Log.d(TAG, "** executeUpload, projectID: " + dto.getProjectID());
 
         CDNUploader.uploadFile(getApplicationContext(), dto, new CDNUploader.CDNUploaderListener() {
             @Override
             public void onFileUploaded(PhotoUploadDTO photo) {
+                Log.w(TAG, "onFileUploaded: photo size:  " + photo.getBytes() );
                 uploadedList.add(dto);
                 PhotoCacheUtil.updateUploadedPhoto(getApplicationContext(), dto);
                 index++;
@@ -182,7 +189,7 @@ public class PhotoUploadService extends IntentService {
 
             @Override
             public void onError(String message) {
-                Log.e(LOG, message);
+                Log.e(TAG, message);
                 failedUploads.add(dto);
                 index++;
                 controlUploads();
@@ -193,7 +200,7 @@ public class PhotoUploadService extends IntentService {
 
 
     List<PhotoUploadDTO> failedUploads = new ArrayList<>();
-    static final String LOG = PhotoUploadService.class.getSimpleName();
+    static final String TAG = PhotoUploadService.class.getSimpleName();
     public class LocalBinder extends Binder {
 
         public PhotoUploadService getService() {

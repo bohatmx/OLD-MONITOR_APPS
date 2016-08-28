@@ -51,6 +51,7 @@
             android:layout_below="@id/SI_app"
             android:layout_marginLeft="@dimen/mon_padding"
             android:layout_marginTop="@dimen/mon_wide"
+            android:visibility="gone"
             android:text="@string/select_email" />
 
         <android.support.design.widget.TextInputLayout

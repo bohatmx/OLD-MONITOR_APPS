@@ -16,6 +16,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -25,6 +26,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.CursorLoader;
 import android.support.v7.app.ActionBar;
@@ -85,6 +87,19 @@ import de.hdodenhof.circleimageview.CircleImageView;
  * Mostly, the method names speak for themselves
  */
 public class Util {
+
+
+    public static Snackbar createSnackBar(View view,String title, String action, String color) {
+        final Snackbar snackbar = Snackbar.make(view,title, Snackbar.LENGTH_INDEFINITE);
+        snackbar.setAction(action, new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                snackbar.dismiss();
+            }
+        });
+        snackbar.setActionTextColor(Color.parseColor(color));
+        return snackbar;
+    }
     @SuppressLint("NewApi")
     public static String getRealPathFromURI_API19(Context context, Uri uri) {
         String filePath = "";
@@ -1581,7 +1596,7 @@ public class Util {
             else
                 ef.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, "W");
             ef.saveAttributes();
-//            Log.e(LOG, "### Exif attributes written to " + filePath);
+//            Log.e(TAG, "### Exif attributes written to " + filePath);
         } catch (IOException e) {
             Log.e(LOG,"could not write exif data in image",e);
         }
@@ -1596,7 +1611,7 @@ public class Util {
         sOut = sOut + Integer.toString((int) coord) + "/1,";   // 105/1,59/1,
         coord = (coord % 1) * 60000;             // .259258 * 60000 = 15555
         sOut = sOut + Integer.toString((int) coord) + "/1000";   // 105/1,59/1,15555/1000
-        // Log.i(LOG, "decimalToDMS coord: " + coord + " converted to: " + sOut);
+        // Log.i(TAG, "decimalToDMS coord: " + coord + " converted to: " + sOut);
         return sOut;
     }
 
@@ -1653,65 +1668,6 @@ public class Util {
         public void onDataRefreshed(ProjectDTO project);
 
         public void onError(String message);
-    }
-
-    public static void refreshProjectData(final Activity activity,
-                                          final Context ctx, final Integer projectID,
-                                          final ProjectDataRefreshListener listener) {
-        if (activity == null || ctx == null) {
-            Log.e(LOG, "## activity passed in is null, exit");
-            return;
-        }
-        Log.i(LOG, "######## refreshProjectData started ....");
-        RequestDTO w = new RequestDTO(RequestDTO.GET_PROJECT_DATA);
-        w.setProjectID(projectID);
-
-        NetUtil.sendRequest(ctx, w, new NetUtil.NetUtilListener() {
-            @Override
-            public void onResponse(final ResponseDTO response) {
-                activity.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (response.getStatusCode() > 0) {
-                            Util.showErrorToast(ctx, response.getMessage());
-                            return;
-                        }
-                        CacheUtil.cacheProjectData(ctx, response, projectID, new CacheUtil.CacheUtilListener() {
-                            @Override
-                            public void onFileDataDeserialized(ResponseDTO response) {
-
-                            }
-
-                            @Override
-                            public void onDataCached() {
-                                listener.onDataRefreshed(response.getProjectList().get(0));
-                            }
-
-                            @Override
-                            public void onError() {
-                                listener.onError("Failed to get Project data");
-                            }
-                        });
-                    }
-                });
-            }
-
-            @Override
-            public void onError(final String message) {
-                activity.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        listener.onError(message);
-                    }
-                });
-            }
-
-            @Override
-            public void onWebSocketClose() {
-
-            }
-        });
-
     }
 
 

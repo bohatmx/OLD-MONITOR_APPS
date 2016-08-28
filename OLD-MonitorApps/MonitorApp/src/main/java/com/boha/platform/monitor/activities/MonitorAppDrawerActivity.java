@@ -1,12 +1,16 @@
 package com.boha.platform.monitor.activities;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.location.Location;
 import android.location.LocationManager;
@@ -16,10 +20,12 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.view.PagerTitleStrip;
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.DrawerLayout;
@@ -48,6 +54,7 @@ import com.boha.monitor.library.dto.ProjectDTO;
 import com.boha.monitor.library.dto.ProjectTaskDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
+import com.boha.monitor.library.dto.SimpleMessageDTO;
 import com.boha.monitor.library.dto.VideoUploadDTO;
 import com.boha.monitor.library.fragments.MediaDialogFragment;
 import com.boha.monitor.library.fragments.MessagingFragment;
@@ -59,16 +66,17 @@ import com.boha.monitor.library.fragments.SimpleMessageFragment;
 import com.boha.monitor.library.services.PhotoUploadService;
 import com.boha.monitor.library.services.RequestSyncService;
 import com.boha.monitor.library.services.VideoUploadService;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.DepthPageTransformer;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.ThemeChooser;
 import com.boha.monitor.library.util.Util;
 import com.boha.monitor.library.util.WebCheck;
 import com.boha.platform.monitor.R;
 import com.boha.platform.monitor.fragments.NavigationDrawerFragment;
 import com.boha.platform.monitor.fragments.NoProjectsAssignedFragment;
+import com.boha.platform.monitor.services.MonitorGCMListenerService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -119,7 +127,7 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         ctx = getApplicationContext();
-        Log.d(LOG,"################## MonitorAppDrawerActivity onCreate");
+        Log.d(LOG, "################## MonitorAppDrawerActivity onCreate");
         ThemeChooser.setTheme(this);
         Resources.Theme theme = getTheme();
         TypedValue typedValue = new TypedValue();
@@ -166,6 +174,10 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
                 "Project Monitoring",
                 ContextCompat.getDrawable(ctx, R.drawable.glasses48));
         mNavigationDrawerFragment.openDrawer();
+
+        LocalBroadcastManager bm = LocalBroadcastManager.getInstance(getApplicationContext());
+        bm.registerReceiver(new PhotoBroadcastReceiver(), new IntentFilter(PhotoUploadService.BROADCAST_PHOTO_UPLOADED));
+        bm.registerReceiver(new MessageBroadcastReceiver(), new IntentFilter(MonitorGCMListenerService.BROADCAST_MESSAGE_RECEIVED));
     }
 
     @Override
@@ -175,29 +187,24 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
     }
 
     private void getCachedData() {
-        Log.d(LOG,"getCachedData .........");
-        CacheUtil.getCachedMonitorProjects(ctx, new CacheUtil.CacheUtilListener() {
+        Log.d(LOG, "getCachedData .........");
+        Snappy.getData(getApplicationContext(), new Snappy.SnappyReadListener() {
             @Override
-            public void onFileDataDeserialized(ResponseDTO r) {
+            public void onDataRead(ResponseDTO r) {
                 if (r.getProjectList() != null && !r.getProjectList().isEmpty()) {
                     response = r;
                     buildPages();
                 } else {
                     getRemoteData();
                 }
-
             }
 
             @Override
-            public void onDataCached() {
+            public void onError(String message) {
 
-            }
-
-            @Override
-            public void onError() {
-                getRemoteData();
             }
         });
+
     }
 
     private void getRemoteData() {
@@ -211,7 +218,7 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
         setRefreshActionButtonState(true);
         Util.setActionBarIconSpinning(mMenu, R.id.action_refresh, true);
         busyGettingRemoteData = true;
-        Snackbar.make(mPager,"Refreshing your data. May take a minute or two ...",Snackbar.LENGTH_LONG).show();
+        Snackbar.make(mPager, "Refreshing your data. May take a minute or two ...", Snackbar.LENGTH_LONG).show();
         NetUtil.sendRequest(ctx, w, new NetUtil.NetUtilListener() {
             @Override
             public void onResponse(final ResponseDTO r) {
@@ -233,7 +240,7 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
                             }
                         }
                         buildPages();
-                        CacheUtil.cacheMonitorProjects(ctx, response, null);
+                       Snappy.saveData(response,ctx,null);
                     }
                 });
             }
@@ -525,32 +532,16 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
     @Override
     public void onStatusUpdateRequired(final ProjectDTO project) {
         SharedUtil.saveLastProjectID(ctx, project.getProjectID());
-
-        CacheUtil.getCachedMonitorProjects(ctx, new CacheUtil.CacheUtilListener() {
-            @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                int type = UpdateActivity.NO_TYPES;
-                if (!response.getTaskTypeList().isEmpty()) {
-                    type = UpdateActivity.TYPES;
-                }
-                Intent w = new Intent(getApplicationContext(),
-                        UpdateActivity.class);
-                w.putExtra("project", project);
-                w.putExtra("darkColor", themeDarkColor);
-                w.putExtra("type", type);
-                startActivityForResult(w,REQUEST_STATUS_UPDATE);
-            }
-
-            @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
-
-            }
-        });
+        int type = UpdateActivity.NO_TYPES;
+        if (!response.getTaskTypeList().isEmpty()) {
+            type = UpdateActivity.TYPES;
+        }
+        Intent w = new Intent(getApplicationContext(),
+                UpdateActivity.class);
+        w.putExtra("project", project);
+        w.putExtra("darkColor", themeDarkColor);
+        w.putExtra("type", type);
+        startActivityForResult(w, REQUEST_STATUS_UPDATE);
 
 
     }
@@ -641,6 +632,16 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
     public void onConnected(Bundle bundle) {
         Log.i(LOG,
                 "+++  onConnected() -  requestLocationUpdates ...");
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
         mLocation = LocationServices.FusedLocationApi.getLastLocation(
                 mGoogleApiClient);
         if (mLocation != null) {
@@ -665,6 +666,16 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
         Log.w(LOG, "###### startLocationUpdates: " + new Date().toString());
         if (mGoogleApiClient.isConnected()) {
             mRequestingLocationUpdates = true;
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
             LocationServices.FusedLocationApi.requestLocationUpdates(
                     mGoogleApiClient, mLocationRequest, this);
         }
@@ -985,6 +996,7 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
     };
 
     boolean busyGettingRemoteData;
+
     private boolean checkSettings() {
 
 
@@ -1051,4 +1063,33 @@ public class MonitorAppDrawerActivity extends AppCompatActivity
         return false;
     }
 
+    private void doPhotoSnack(int count) {
+        Util.createSnackBar(mPager, "Photos uploaded: " + count, "OK", "GREEN");
+    }
+
+    private void doMessageSnack(SimpleMessageDTO message) {
+        Util.createSnackBar(mPager, "Message received", "OK", "GREEN");
+    }
+
+    public static final String TAG = MonitorAppDrawerActivity.class.getSimpleName();
+
+    private class PhotoBroadcastReceiver extends android.content.BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            int uploaded = intent.getIntExtra("uploaded", 0);
+            Log.w(TAG, "onReceive: photos uploaded: " + uploaded);
+            doPhotoSnack(uploaded);
+        }
+    }
+
+    private class MessageBroadcastReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            SimpleMessageDTO message = (SimpleMessageDTO) intent.getSerializableExtra("message");
+            Log.w(TAG, "onReceive: message received ");
+            doMessageSnack(message);
+        }
+    }
 }

@@ -178,7 +178,7 @@ public class MonitorMapActivity extends AppCompatActivity
             return;
         }
 
-//        Log.w(LOG, "###### startLocationUpdates: " + new Date().toString());
+//        Log.w(TAG, "###### startLocationUpdates: " + new Date().toString());
 //        if (mGoogleApiClient.isConnected()) {
 //            mRequestingLocationUpdates = true;
 //            LocationServices.FusedLocationApi.requestLocationUpdates(

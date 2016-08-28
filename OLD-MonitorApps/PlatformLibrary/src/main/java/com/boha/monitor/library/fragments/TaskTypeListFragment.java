@@ -12,12 +12,11 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.boha.monitor.library.activities.MonApp;
 import com.boha.monitor.library.adapters.TaskTypeAdapter;
 import com.boha.monitor.library.dto.ProjectDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.dto.TaskTypeDTO;
-import com.boha.monitor.library.util.CacheUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.SpacesItemDecoration;
 import com.boha.monitor.library.util.Util;
 import com.boha.platform.library.R;
@@ -89,54 +88,23 @@ public class TaskTypeListFragment extends Fragment implements PageFragment {
 
     private void getCachedTypes() {
         Log.d("TaskTypeListFragment", "### getCachedTypes");
-        switch (type) {
-            case MONITOR:
-                CacheUtil.getCachedMonitorProjects(getActivity(), new CacheUtil.CacheUtilListener() {
-                    @Override
-                    public void onFileDataDeserialized(ResponseDTO response) {
-                        if (response.getTaskTypeList() != null) {
-                            taskTypeList = response.getTaskTypeList();
-                            if (mRecyclerView != null) {
-                                setList();
-                            }
-                        }
+        Snappy.getData(getActivity(), new Snappy.SnappyReadListener() {
+            @Override
+            public void onDataRead(ResponseDTO response) {
+                if (response.getTaskTypeList() != null) {
+                    taskTypeList = response.getTaskTypeList();
+                    if (mRecyclerView != null) {
+                        setList();
                     }
+                }
+            }
 
-                    @Override
-                    public void onDataCached() {
+            @Override
+            public void onError(String message) {
 
-                    }
+            }
+        });
 
-                    @Override
-                    public void onError() {
-
-                    }
-                });
-                break;
-            case STAFF:
-                CacheUtil.getCachedStaffData(getActivity(), new CacheUtil.CacheUtilListener() {
-                    @Override
-                    public void onFileDataDeserialized(ResponseDTO response) {
-                        if (response.getTaskTypeList() != null) {
-                            taskTypeList = response.getTaskTypeList();
-                            if (mRecyclerView != null) {
-                                setList();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onDataCached() {
-
-                    }
-
-                    @Override
-                    public void onError() {
-
-                    }
-                });
-                break;
-        }
     }
 
     public void setDarkColor(int darkColor) {

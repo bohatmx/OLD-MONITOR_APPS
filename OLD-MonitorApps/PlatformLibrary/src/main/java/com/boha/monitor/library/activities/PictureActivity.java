@@ -2,8 +2,10 @@ package com.boha.monitor.library.activities;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -15,10 +17,10 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.support.annotation.RequiresPermission;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -85,10 +87,10 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
     Context ctx;
     FloatingActionButton fab;
     public static final int CAPTURE_IMAGE = 9908;
-    static final String LOG = PictureActivity.class.getSimpleName();
+    static final String TAG = PictureActivity.class.getSimpleName();
 
     public void onCreate(Bundle savedInstanceState) {
-        Log.d(LOG, "PictureActivity onCreate");
+        Log.d(TAG, "PictureActivity onCreate");
         ThemeChooser.setTheme(this);
         super.onCreate(savedInstanceState);
         ctx = getApplicationContext();
@@ -155,6 +157,10 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
 
         checkPermissions();
+        PhotoBroadcastReceiver pbr = new PhotoBroadcastReceiver();
+        IntentFilter filter = new IntentFilter(PhotoUploadService.BROADCAST_PHOTO_UPLOADED);
+        LocalBroadcastManager bm = LocalBroadcastManager.getInstance(getApplicationContext());
+        bm.registerReceiver(pbr, filter);
         Intent w = new Intent(ctx, PhotoUploadService.class);
         w.putExtra("sat", "sat");
         startService(w);
@@ -164,10 +170,10 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     @Override
     public void onResume() {
-        Log.d(LOG, "@@@@@@ onResume...........");
+        Log.d(TAG, "@@@@@@ onResume...........");
         super.onResume();
         if (currentThumbFile != null) {
-            Log.w(LOG, "onResume currentThumbFile size: " + currentThumbFile.length());
+            Log.w(TAG, "onResume currentThumbFile size: " + currentThumbFile.length());
             Picasso.with(ctx).load(currentThumbFile).into(imageView);
         }
 
@@ -175,7 +181,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     @Override
     public void onRestoreInstanceState(Bundle savedInstanceState) {
-        Log.e(LOG, "%%%%%%%%%%%% onRestoreInstanceState" + savedInstanceState);
+        Log.e(TAG, "%%%%%%%%%%%% onRestoreInstanceState" + savedInstanceState);
         type = savedInstanceState.getInt("type", 0);
         projectTask = (ProjectTaskDTO) savedInstanceState.getSerializable("projectTask");
         project = (ProjectDTO) savedInstanceState.getSerializable("project");
@@ -185,12 +191,12 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         String path = savedInstanceState.getString("thumbPath");
         if (path != null) {
             currentThumbFile = new File(path);
-            Log.d(LOG, "onRestoreInstanceState currentThumbFile: " + currentThumbFile.length());
+            Log.d(TAG, "onRestoreInstanceState currentThumbFile: " + currentThumbFile.length());
         }
         String path2 = savedInstanceState.getString("photoFile");
         if (path2 != null) {
             photoFile = new File(path2);
-            Log.d(LOG, "onRestoreInstanceState photoFile: " + photoFile.length());
+            Log.d(TAG, "onRestoreInstanceState photoFile: " + photoFile.length());
         }
         double lat = savedInstanceState.getDouble("latitude");
         double lng = savedInstanceState.getDouble("longitude");
@@ -238,7 +244,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
     @Override
     public void onActivityResult(final int requestCode, final int resultCode,
                                  final Intent data) {
-        Log.e(LOG, "##### onActivityResult requestCode: " + requestCode
+        Log.e(TAG, "##### onActivityResult requestCode: " + requestCode
                 + " resultCode: " + resultCode);
 
         switch (requestCode) {
@@ -284,11 +290,11 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     @Override
     public void onLocationChanged(Location loc) {
-        Log.d(LOG, "## onLocationChanged accuracy = " + loc.getAccuracy()
+        Log.d(TAG, "## onLocationChanged accuracy = " + loc.getAccuracy()
                 + " - " + new Date().toString());
         if (loc.getAccuracy() <= ACCURACY_THRESHOLD) {
             this.location = loc;
-            Log.e(LOG, "device location updated, accuracy: " + loc.getAccuracy());
+            Log.e(TAG, "device location updated, accuracy: " + loc.getAccuracy());
 
         }
     }
@@ -298,12 +304,12 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
      */
     @Override
     public void onStart() {
-        Log.i(LOG,
+        Log.i(TAG,
                 "## onStart - GoogleApiClient connecting ... binding service");
         if (googleApiClient != null) {
             googleApiClient.connect();
         }
-//        Log.i(LOG, "## onStart Bind to PhotoUploadService");
+//        Log.i(TAG, "## onStart Bind to PhotoUploadService");
 //        Intent intent = new Intent(this, PhotoUploadService.class);
 //        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         super.onStart();
@@ -321,9 +327,9 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         stopLocationUpdates();
         if (googleApiClient != null) {
             googleApiClient.disconnect();
-            Log.e(LOG, "### onStop - GoogleApiClient disconnecting ");
+            Log.e(TAG, "### onStop - GoogleApiClient disconnecting ");
         }
-        Log.e(LOG, "## onStop unBind from PhotoUploadService");
+        Log.e(TAG, "## onStop unBind from PhotoUploadService");
 
 
     }
@@ -351,7 +357,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         location = LocationServices.FusedLocationApi.getLastLocation(
                 googleApiClient);
         if (location != null)
-            Log.w(LOG, "## googleApiClient onConnected, requesting location updates ....getLastLocation acc: " + location.getAccuracy());
+            Log.w(TAG, "## googleApiClient onConnected, requesting location updates ....getLastLocation acc: " + location.getAccuracy());
         mLocationRequest = LocationRequest.create();
         mLocationRequest.setInterval(60000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
@@ -373,6 +379,16 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
     protected void startLocationUpdates() {
         if (googleApiClient.isConnected()) {
             mRequestingLocationUpdates = true;
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
             LocationServices.FusedLocationApi.requestLocationUpdates(
                     googleApiClient, mLocationRequest, this);
         }
@@ -398,12 +414,11 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
     /**
      * Start default on-board camera app
      */
-    @RequiresPermission
     private void dispatchTakePictureIntent() {
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
-            Log.e(LOG, "WRITE_EXTERNAL_STORAGE permission not granted yet");
+            Log.e(TAG, "WRITE_EXTERNAL_STORAGE permission not granted yet");
             return;
         }
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -413,7 +428,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
             try {
                 createPhotoFile();
                 if (photoFile != null) {
-                    Log.w(LOG, "photoFile created: " + photoFile.getAbsolutePath());
+                    Log.w(TAG, "photoFile created: " + photoFile.getAbsolutePath());
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
                             Uri.fromFile(photoFile));
                     startActivityForResult(takePictureIntent, CAPTURE_IMAGE);
@@ -422,7 +437,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
                 }
 
             } catch (IOException ex) {
-                Log.e(LOG, "Fuck!", ex);
+                Log.e(TAG, "Fuck!", ex);
                 Util.showErrorToast(ctx, getString(R.string.file_error));
             }
         }
@@ -465,11 +480,11 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
             case MY_PERMISSIONS_WRITE_EXTERNAL_STORAGE: {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.w(LOG, "ACCESS_FINE_LOCATION permission granted");
+                    Log.w(TAG, "ACCESS_FINE_LOCATION permission granted");
                     dispatchTakePictureIntent();
 
                 } else {
-                    Log.e(LOG, "ACCESS_FINE_LOCATION permission denied");
+                    Log.e(TAG, "ACCESS_FINE_LOCATION permission denied");
 
                 }
                 return;
@@ -485,7 +500,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
-            Log.d(LOG, "WRITE_EXTERNAL_STORAGE permission not granted yet");
+            Log.d(TAG, "WRITE_EXTERNAL_STORAGE permission not granted yet");
             return;
         }
 
@@ -493,11 +508,11 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
         File root;
         if (Util.hasStorage(true)) {
-            Log.i(LOG, "###### get file from getExternalStoragePublicDirectory");
+            Log.i(TAG, "###### get file from getExternalStoragePublicDirectory");
             root = Environment.getExternalStoragePublicDirectory(
                     Environment.DIRECTORY_PICTURES);
         } else {
-            Log.i(LOG, "###### get file from getDataDirectory");
+            Log.i(TAG, "###### get file from getDataDirectory");
             root = Environment.getDataDirectory();
         }
         File pics = new File(root, "monitor_app");
@@ -543,7 +558,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     @Override
     public void onPause() {
-        Log.d(LOG, "onPause");
+        Log.d(TAG, "onPause");
         super.onPause();
 
     }
@@ -552,13 +567,13 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
     public void onBackPressed() {
 
         if (pictureTakenOK) {
-            Log.d(LOG, "onBackPressed ... picture cached and scheduled for upload");
+            Log.d(TAG, "onBackPressed ... picture cached and scheduled for upload");
             ResponseDTO r = new ResponseDTO();
             Intent i = new Intent();
             i.putExtra("pictureTakenOK", pictureTakenOK);
             setResult(RESULT_OK, i);
         } else {
-            Log.d(LOG, "onBackPressed ... cancelled");
+            Log.d(TAG, "onBackPressed ... cancelled");
             setResult(RESULT_CANCELED);
         }
         finish();
@@ -566,7 +581,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     @Override
     public void onSaveInstanceState(Bundle b) {
-        Log.e(LOG, "############################## onSaveInstanceState");
+        Log.e(TAG, "############################## onSaveInstanceState");
         b.putInt("type", type);
         if (currentThumbFile != null) {
             b.putString("thumbPath", currentThumbFile.getAbsolutePath());
@@ -615,16 +630,16 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         protected Integer doInBackground(Void... voids) {
             try {
                 if (photoFile == null || photoFile.length() == 0) {
-                    Log.e(LOG, "----->> photoFile is null or length 0, exiting");
+                    Log.e(TAG, "----->> photoFile is null or length 0, exiting");
                     return 99;
                 } else {
-                    Log.w(LOG, "## PhotoTask starting, photoFile length: "
+                    Log.w(TAG, "## PhotoTask starting, photoFile length: "
                             + photoFile.length());
                 }
                 processFile();
                 //resizePhoto();
             } catch (Exception e) {
-                Log.e(LOG, "Camera file processing failed", e);
+                Log.e(TAG, "Camera file processing failed", e);
                 return 9;
             }
 
@@ -653,10 +668,10 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
             options.inSampleSize = 4;
             Bitmap main = BitmapFactory.decodeFile(photoFile.getAbsolutePath(), options);
             Bitmap bm = ScalingUtilities.createScaledBitmap(
-                    main, 300, 400, ScalingUtilities.ScalingLogic.CROP);
+                    main, 768, 1024, ScalingUtilities.ScalingLogic.CROP);
 
             if (main.getWidth() > main.getHeight()) {
-                Log.d(LOG, "*** this image in landscape");
+                Log.d(TAG, "*** this image in landscape");
                 bm = Util.rotateBitmap(bm);
 
             }
@@ -670,15 +685,15 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
             }
             main.recycle();
             bm.recycle();
-            Log.i(LOG, "## photo file length: " + getLength(currentThumbFile.length())
+            Log.i(TAG, "## photo file length: " + getLength(currentThumbFile.length())
                     + ", original size: " + getLength(photoFile.length()));
 
         }
 
         private void resizePhoto() throws Exception {
-            Log.w(LOG, "## PhotoTask starting doInBackground, file length: " + photoFile.length());
+            Log.w(TAG, "## PhotoTask starting doInBackground, file length: " + photoFile.length());
             if (photoFile == null || photoFile.length() == 0) {
-                Log.e(LOG, "----- photoFile is null or length 0, exiting");
+                Log.e(TAG, "----- photoFile is null or length 0, exiting");
                 throw new Exception();
             }
 
@@ -702,7 +717,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
             boolean del = photoFile.delete();
             bm.recycle();
             thumb.recycle();
-            Log.i(LOG, "## Thumbnail file length: " + currentThumbFile.length()
+            Log.i(TAG, "## Thumbnail file length: " + currentThumbFile.length()
                     + " main image file deleted: " + del);
 
 
@@ -716,7 +731,7 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
         @Override
         protected void onPostExecute(Integer result) {
-            Log.e(LOG,"onPostExecute result: " + result.intValue());
+            Log.e(TAG,"onPostExecute result: " + result.intValue());
             if (result > 0) {
                 pictureTakenOK = false;
                 Util.showErrorToast(ctx, getString(R.string.camera_error));
@@ -758,14 +773,14 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
     private void getLog(Bitmap bm, String which) {
         if (bm == null) return;
-        Log.e(LOG, which + " - bitmap: width: "
+        Log.e(TAG, which + " - bitmap: width: "
                 + bm.getWidth() + " height: "
                 + bm.getHeight() + " rowBytes: "
                 + bm.getRowBytes());
     }
 
     public void addProjectTaskPicture() {
-        Log.w(LOG, "**** addProjectTaskPicture");
+        Log.w(TAG, "**** addProjectTaskPicture");
         final PhotoUploadDTO dto = getObject();
         dto.setProjectID(projectTask.getProjectID());
         dto.setProjectTaskID(projectTask.getProjectTaskID());
@@ -790,27 +805,23 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
 
             @Override
             public void onDataCached(PhotoUploadDTO p) {
-//                Log.w(LOG, "### photo has been cached");
+//                Log.w(TAG, "### photo has been cached");
                 Intent a = new Intent(ctx, PhotoUploadService.class);
                 a.putExtra("photo", dto);
                 startService(a);
-//                mService.uploadCachedPhotos(new PhotoUploadService.UploadListener() {
-//                    @Override
-//                    public void onUploadsComplete(List<PhotoUploadDTO> list) {
-//                        Snackbar.make(txtTitle, "Photos uploaded: " + list.size(), Snackbar.LENGTH_LONG);
-//                    }
-//                });
+                Util.createSnackBar(imageView,"Photo is being uploaded ...", "OK", "CYAN");
             }
 
             @Override
             public void onError() {
                 Util.showErrorToast(ctx, getString(R.string.photo_error));
+                Util.createSnackBar(imageView,getString(R.string.photo_error),"Not OK", "RED");
             }
         });
     }
 
     public void addProjectPicture() {
-        Log.w(LOG, "**** addProjectPicture");
+        Log.w(TAG, "**** addProjectPicture");
         final PhotoUploadDTO dto = getObject();
         dto.setProjectID(project.getProjectID());
         dto.setPictureType(PhotoUploadDTO.PROJECT_IMAGE);
@@ -850,6 +861,20 @@ public class PictureActivity extends AppCompatActivity implements LocationListen
         dto.setPictureType(PhotoUploadDTO.STAFF_IMAGE);
         dto.setThumbFilePath(currentThumbFile.getAbsolutePath());
         saveAndUpload(dto);
+    }
+
+    private void doSnack(int count) {
+        Util.createSnackBar(imageView, "Photos Uploaded: " + count, "OK", "GREEN");
+    }
+
+    private class PhotoBroadcastReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            int uploaded = intent.getIntExtra("uploaded", 0);
+            Log.w(TAG, "onReceive: photos uploaded: " + uploaded);
+            doSnack(uploaded);
+        }
     }
 
 }

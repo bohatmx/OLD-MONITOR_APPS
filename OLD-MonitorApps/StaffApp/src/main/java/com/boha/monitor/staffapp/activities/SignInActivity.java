@@ -1,8 +1,6 @@
 package com.boha.monitor.staffapp.activities;
 
 import android.Manifest;
-import android.accounts.Account;
-import android.accounts.AccountManager;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -28,16 +26,14 @@ import com.boha.monitor.library.dto.GcmDeviceDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.dto.StaffDTO;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.GCMUtil;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.Util;
 import com.boha.monitor.staffapp.R;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
-
-import org.acra.ACRA;
 
 import java.util.ArrayList;
 
@@ -81,7 +77,7 @@ public class SignInActivity extends AppCompatActivity {
         super.onResume();
         Log.d(LOG, "#################### onResume");
         checkPermissions();
-        getEmail();
+//        getEmail();
         checkVirgin();
     }
     private void checkPermissions() {
@@ -108,25 +104,25 @@ public class SignInActivity extends AppCompatActivity {
             }
 
         }
-        if (ContextCompat.checkSelfPermission(this,Manifest.permission.GET_ACCOUNTS)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.GET_ACCOUNTS)) {
-
-                // Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-            } else {
-
-                // No explanation needed, we can request the permission.
-
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.GET_ACCOUNTS},
-                        MY_PERMISSIONS_GET_ACCOUNTS);
-
-            }
-        }
+//        if (ContextCompat.checkSelfPermission(this,Manifest.permission.GET_ACCOUNTS)
+//                != PackageManager.PERMISSION_GRANTED) {
+//            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+//                    Manifest.permission.GET_ACCOUNTS)) {
+//
+//                // Show an expanation to the user *asynchronously* -- don't block
+//                // this thread waiting for the user's response! After the user
+//                // sees the explanation, try again to request the permission.
+//
+//            } else {
+//
+//                // No explanation needed, we can request the permission.
+//
+//                ActivityCompat.requestPermissions(this,
+//                        new String[]{Manifest.permission.GET_ACCOUNTS},
+//                        MY_PERMISSIONS_GET_ACCOUNTS);
+//
+//            }
+//        }
     }
     static final int MY_PERMISSIONS_ACCESS_FINE_LOCATION = 83;
     static final int MY_PERMISSIONS_GET_ACCOUNTS = 85;
@@ -149,7 +145,7 @@ public class SignInActivity extends AppCompatActivity {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.w(LOG,"GET_ACCOUNTS permission granted");
-                    getEmail();
+//                    getEmail();
 
                 } else {
                     Log.e(LOG,"GET_ACCOUNTS permission denied");
@@ -200,6 +196,7 @@ public class SignInActivity extends AppCompatActivity {
         gcmDevice.setAndroidVersion(Build.VERSION.RELEASE);
         gcmDevice.setProduct(Build.PRODUCT);
         gcmDevice.setApp(ctx.getPackageName());
+        SharedUtil.saveGCMDevice(ctx,gcmDevice);
 
         Snackbar.make(btnSave, "Just a second, checking services ...", Snackbar.LENGTH_LONG)
                 .setAction("CLOSE", null)
@@ -288,8 +285,10 @@ public class SignInActivity extends AppCompatActivity {
         r.setEmail(email);
         r.setPin(ePin.getText().toString());
         gcmDevice = SharedUtil.getGCMDevice(ctx);
-        if (gcmDevice.getRegistrationID() != null) {
-            r.setGcmDevice(gcmDevice);
+        if (gcmDevice != null) {
+            if (gcmDevice.getRegistrationID() != null) {
+                r.setGcmDevice(gcmDevice);
+            }
         }
 
         setBusyIndicator(true);
@@ -317,25 +316,17 @@ public class SignInActivity extends AppCompatActivity {
                         if (!response.getPhotoUploadList().isEmpty()) {
                             SharedUtil.savePhoto(ctx, response.getPhotoUploadList().get(0));
                         }
-                        try {
-                            ACRA.getErrorReporter().putCustomData("staffID", ""
-                                    + response.getStaff().getStaffID());
-                        } catch (Exception e) {//ignore}
-                        }
-                        CacheUtil.cacheStaffData(ctx, response, new CacheUtil.CacheUtilListener() {
+                        Snappy.saveData(response, ctx, new Snappy.SnappyWriteListener() {
                             @Override
-                            public void onFileDataDeserialized(ResponseDTO response) {
-                            }
-
-                            @Override
-                            public void onDataCached() {
+                            public void onDataWritten() {
                                 Intent intent = new Intent(ctx, StaffMainActivity.class);
                                 intent.putExtra("justSignedIn", true);
                                 startActivity(intent);
                             }
 
                             @Override
-                            public void onError() {
+                            public void onError(String message) {
+
                             }
                         });
                     }
@@ -464,26 +455,26 @@ public class SignInActivity extends AppCompatActivity {
     }
 
 
-    public void getEmail() {
-        Log.d(LOG,"getEmail accounts");
-        if (ContextCompat.checkSelfPermission(this,Manifest.permission.GET_ACCOUNTS)
-                != PackageManager.PERMISSION_GRANTED) {
-            checkPermissions();
-            return;
-        }
-        Log.d(LOG,"... getting AccountManager");
-        AccountManager am = AccountManager.get(getApplicationContext());
-        Account[] accts = am.getAccounts();
-
-        if (accts != null) {
-            tarList.add(ctx.getResources().getString(R.string.select_email));
-            for (int i = 0; i < accts.length; i++) {
-                tarList.add(accts[i].name);
-
-            }
-        }
-
-    }
+//    public void getEmail() {
+//        Log.d(LOG,"getEmail accounts");
+//        if (ContextCompat.checkSelfPermission(this,Manifest.permission.GET_ACCOUNTS)
+//                != PackageManager.PERMISSION_GRANTED) {
+//            checkPermissions();
+//            return;
+//        }
+//        Log.d(LOG,"... getting AccountManager");
+//        AccountManager am = AccountManager.get(getApplicationContext());
+//        Account[] accts = am.getAccounts();
+//
+//        if (accts != null) {
+//            tarList.add(ctx.getResources().getString(R.string.select_email));
+//            for (int i = 0; i < accts.length; i++) {
+//                tarList.add(accts[i].name);
+//
+//            }
+//        }
+//
+//    }
 
     ArrayList<String> tarList = new ArrayList<String>();
     Menu mMenu;

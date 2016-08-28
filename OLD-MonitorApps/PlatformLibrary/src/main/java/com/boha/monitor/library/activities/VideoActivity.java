@@ -200,7 +200,7 @@ public class VideoActivity extends AppCompatActivity implements LocationListener
             googleApiClient.disconnect();
             Log.d(LOG, "### onStop - GoogleApiClient disconnecting ");
         }
-//        Log.d(LOG, "## onStop unBind from VideoUploadService");
+//        Log.d(TAG, "## onStop unBind from VideoUploadService");
 //        if (mBound) {
 //            unbindService(mConnection);
 //            mBound = false;
@@ -213,7 +213,7 @@ public class VideoActivity extends AppCompatActivity implements LocationListener
         super.onDestroy();
 //        if (googleApiClient != null) {
 //            googleApiClient.disconnect();
-//            Log.d(LOG, "### onStop - GoogleApiClient disconnecting ");
+//            Log.d(TAG, "### onStop - GoogleApiClient disconnecting ");
 //        }
         Log.d(LOG, "## onStop unBind from VideoUploadService");
         if (mBound) {

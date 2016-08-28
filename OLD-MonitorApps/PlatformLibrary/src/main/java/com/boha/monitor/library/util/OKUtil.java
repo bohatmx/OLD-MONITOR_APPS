@@ -36,7 +36,7 @@ public class OKUtil {
 
     static OkHttpClient client = new OkHttpClient();
     static Gson gson = new Gson();
-    static String GATEWAY_SERVLET = "gatex?";
+    static String GATEWAY_SERVLET = "gatex";
 
     static final String FAILED_UNKOWN_ERROR = "Request failed. Unknown error";
     static final String FAILED_IO = "Request failed. Communications not working";
@@ -44,7 +44,7 @@ public class OKUtil {
     public static final MediaType JSON
             = MediaType.parse("application/json; charset=utf-8");
 
-    static final String LOG = OKUtil.class.getSimpleName();
+    static final String TAG = OKUtil.class.getSimpleName();
     public interface OKListener {
         void onResponse(ResponseDTO response);
 
@@ -75,7 +75,7 @@ public class OKUtil {
         HttpUrl.Builder urlBuilder = HttpUrl.parse(Statics.URL + GATEWAY_SERVLET).newBuilder();
         urlBuilder.addQueryParameter("JSON", gson.toJson(req));
         String url = urlBuilder.build().toString();
-        Log.w(LOG, "### sending request to server, requestType: "
+        Log.w(TAG, "### sending request to server, requestType: "
                 + req.getRequestType()
                 + "\n" + url);
         Request okHttpRequest = new Request.Builder()
@@ -108,7 +108,8 @@ public class OKUtil {
             @Override
             public void onFailure(Request request, IOException e) {
                 long end = System.currentTimeMillis();
-                Log.e(LOG, "### Server responded with ERROR, round trip elapsed: " + getElapsed(start, end));
+                Log.e(TAG, "### Server responded with ERROR, round trip elapsed: " + getElapsed(start, end));
+                 e.printStackTrace();
                 listener.onError(FAILED_IO);
             }
 
@@ -130,15 +131,15 @@ public class OKUtil {
                         sink.close();
 
                         String aa = ZipUtil.unpack(file, uFile);
-                        Log.i(LOG, "### Data received size: " + getLength(file.length())
+                        Log.i(TAG, "### Data received size: " + getLength(file.length())
                                 + " unpacked: " + getLength(uFile.length()));
                         serverResponse = gson.fromJson(aa, ResponseDTO.class);
                         try {
                             file.delete();
                             uFile.delete();
-//                            Log.e(LOG,"Temporary unpacking files deleted OK");
+//                            Log.e(TAG,"Temporary unpacking files deleted OK");
                         } catch (Exception e) {
-                            Log.e(LOG, "Temporary unpacking files NOT deleted. " + e.getMessage());
+                            Log.e(TAG, "Temporary unpacking files NOT deleted. " + e.getMessage());
                         }
                         if (serverResponse.getStatusCode() == 0) {
                             listener.onResponse(serverResponse);
@@ -154,7 +155,7 @@ public class OKUtil {
                     try {
                         String json = response.body().string();
                         serverResponse = gson.fromJson(json, ResponseDTO.class);
-                        Log.i(LOG, "### Data received: " + getLength(json.length()));
+                        Log.i(TAG, "### Data received: " + getLength(json.length()));
                         if (serverResponse.getStatusCode() == 0) {
                             listener.onResponse(serverResponse);
                         } else {
@@ -166,7 +167,7 @@ public class OKUtil {
 
 
                 }
-                Log.e(LOG, "### Server responded, round trip elapsed: " + getElapsed(start, end)
+                Log.e(TAG, "### Server responded, round trip elapsed: " + getElapsed(start, end)
                         + ", server elapsed: " + serverResponse.getElapsedRequestTimeInSeconds()
                         + ", statusCode: " + serverResponse.getStatusCode()
                         + "\nmessage: " + serverResponse.getMessage());

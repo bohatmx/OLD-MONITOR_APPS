@@ -16,7 +16,6 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import com.boha.monitor.library.activities.ProjectMapActivity;
 import com.boha.monitor.library.adapters.ProjectAdapter;
@@ -46,7 +45,6 @@ public class ProjectListFragment extends Fragment implements PageFragment {
     private ImageView image;
     private RecyclerView mRecyclerView;
     private AutoCompleteTextView auto;
-    private TextView txtProgramme, txtProjectCount;
 
     private static final String LOG = ProjectListFragment.class.getSimpleName();
 
@@ -98,12 +96,6 @@ public class ProjectListFragment extends Fragment implements PageFragment {
     ProjectAdapter projectAdapter;
     List<String> projectNameList;
     ProjectDTO selectedProject;
-    public void refreshProjectList(List<ProjectDTO> projectList) {
-        this.projectList = projectList;
-        if (mRecyclerView != null) {
-            setList();
-        }
-    }
 
     public void refreshProject(ProjectDTO p) {
         selectedProject = p;

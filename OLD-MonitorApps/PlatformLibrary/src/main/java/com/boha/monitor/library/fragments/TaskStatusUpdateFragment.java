@@ -32,10 +32,10 @@ import com.boha.monitor.library.dto.RequestList;
 import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.dto.StaffDTO;
 import com.boha.monitor.library.dto.TaskStatusTypeDTO;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.RequestCacheUtil;
 import com.boha.monitor.library.util.SharedUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.SpacesItemDecoration;
 import com.boha.monitor.library.util.Util;
 import com.boha.monitor.library.util.WebCheck;
@@ -79,7 +79,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     LayoutInflater inflater;
 
 
-    static final String LOG = TaskStatusUpdateFragment.class.getSimpleName();
+    static final String TAG = TaskStatusUpdateFragment.class.getSimpleName();
 
     public void setProjectTask(ProjectTaskDTO projectTask) {
         this.projectTask = projectTask;
@@ -105,7 +105,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(LOG, "++ onCreate ......");
+        Log.i(TAG, "++ onCreate ......");
         if (getArguments() != null) {
             projectTask = (ProjectTaskDTO) getArguments().getSerializable("projectTask");
         }
@@ -114,7 +114,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        Log.i(LOG, "########## onCreateView");
+        Log.i(TAG, "########## onCreateView");
         view = inflater.inflate(R.layout.fragment_task_status_edit, container, false);
         actionView = view.findViewById(R.id.TSE_actionLayout);
         this.inflater = inflater;
@@ -130,62 +130,37 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     @Override
     public void onResume() {
         super.onResume();
-        Log.i(LOG, "####### onResume");
+        Log.i(TAG, "-----------------####### onResume");
 
 
     }
 
 
     private void getStatusTypes() {
-        Log.d(LOG, "----- getStatusTypes");
-        if (SharedUtil.getMonitor(getActivity()) != null) {
-            CacheUtil.getCachedMonitorProjects(getActivity(), new CacheUtil.CacheUtilListener() {
-                @Override
-                public void onFileDataDeserialized(ResponseDTO response) {
-                    if (response.getTaskStatusTypeList() != null && !response.getTaskStatusTypeList().isEmpty()) {
-                        taskStatusTypeList = response.getTaskStatusTypeList();
-                        setList();
-                    }
+        Log.d(TAG, "----- getStatusTypes");
+
+        Snappy.getData(getActivity(), new Snappy.SnappyReadListener() {
+            @Override
+            public void onDataRead(ResponseDTO response) {
+                if (response.getTaskStatusTypeList() != null && !response.getTaskStatusTypeList().isEmpty()) {
+                    taskStatusTypeList = response.getTaskStatusTypeList();
+                    Log.d(TAG, "onDataRead: taskStatusTypeList: " + taskStatusTypeList.size());
+                    setList();
                 }
+            }
 
-                @Override
-                public void onDataCached() {
+            @Override
+            public void onError(String message) {
 
-                }
+            }
+        });
 
-                @Override
-                public void onError() {
-
-                }
-            });
-        }
-        if (SharedUtil.getCompanyStaff(getActivity()) != null) {
-            CacheUtil.getCachedStaffData(getActivity(), new CacheUtil.CacheUtilListener() {
-                @Override
-                public void onFileDataDeserialized(ResponseDTO response) {
-                    if (response.getTaskStatusTypeList() != null) {
-                        taskStatusTypeList = response.getTaskStatusTypeList();
-                        setList();
-                    }
-                }
-
-                @Override
-                public void onDataCached() {
-
-                }
-
-                @Override
-                public void onError() {
-
-                }
-            });
-        }
     }
 
     TaskStatusTypeAdapter adapter;
 
     private void setList() {
-        Log.d(LOG, "+++++++ setList");
+        Log.d(TAG, "...........................+++++++ setList");
         txtTaskName.setText(projectTask.getTask().getTaskName());
 
         adapter = new TaskStatusTypeAdapter(taskStatusTypeList, darkColor, getActivity(), new TaskStatusTypeAdapter.TaskStatusTypeListener() {
@@ -279,7 +254,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
                 Util.flashOnce(btnSubmit, 300, new Util.UtilAnimationListener() {
                     @Override
                     public void onAnimationEnded() {
-                        processRequest();
+                        sendTaskStatus();
                     }
                 });
             }
@@ -316,7 +291,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     private TextView txtTime;
     static final SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
-    private void processRequest() {
+    private void sendTaskStatus() {
 
         btnSubmit.setEnabled(false);
         projectTaskStatus = new ProjectTaskStatusDTO();
@@ -370,6 +345,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
                             txtResult.setText("Status updated: " + projectTask.getTask().getTaskName());
 
                             Util.collapse(actionView, 1000, null);
+                            Util.createSnackBar(btnSubmit,"Task status uploaded", "OK", "GREEN");
                             showCameraDialog();
                         }
                     }
@@ -384,7 +360,8 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
                     public void run() {
                         mListener.setBusy(false);
                         saveRequestInCache(request);
-                        Util.showErrorToast(getActivity(), message);
+                        Log.e(TAG, "sendTaskStatus: " + message );
+                        Util.createSnackBar(btnSubmit,"Error encountered. Will send status later", "OK", "RED");
                     }
                 });
 
@@ -436,7 +413,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
         }
     }
     public void displayPhotos(List<PhotoUploadDTO> list) {
-        Log.i(LOG, "## photos Taken: " + list.size());
+        Log.i(TAG, "## photos Taken: " + list.size());
         if (photoUploadList == null) {
             photoUploadList = new ArrayList<>();
         }
@@ -458,7 +435,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     }
 
     public void onNoPhotoTaken() {
-        Log.i(LOG, "## onNoPhotoTaken, photos Taken: 0");
+        Log.i(TAG, "## onNoPhotoTaken, photos Taken: 0");
         Util.showErrorToast(getActivity(), "No photos were taken for this update");
         scrollView.setVisibility(View.VISIBLE);
         btnDone.setVisibility(View.VISIBLE);
@@ -473,7 +450,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
         RequestCacheUtil.addRequest(getActivity(), request, new RequestCacheUtil.RequestCacheListener() {
             @Override
             public void onError(String message) {
-                Log.e(LOG, message);
+                Log.e(TAG, message);
             }
 
             @Override
@@ -494,7 +471,7 @@ public class TaskStatusUpdateFragment extends Fragment implements PageFragment {
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
-        Log.d(LOG, "++ onAttach");
+        Log.d(TAG, "++ onAttach");
         try {
             mListener = (TaskStatusUpdateListener) activity;
         } catch (ClassCastException e) {

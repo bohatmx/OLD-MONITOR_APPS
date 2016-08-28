@@ -1,7 +1,6 @@
 package com.boha.monitor.library.util;
 
 import android.content.Context;
-import android.support.annotation.RequiresPermission;
 
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.RequestList;
@@ -27,7 +26,6 @@ public class NetUtil {
     static final String LOG = NetUtil.class.getSimpleName();
     static NetUtilListener listener;
 
-    @RequiresPermission
     public static void sendRequest(Context ctx, RequestDTO request, NetUtilListener utilListener) {
         listener = utilListener;
         WebCheckResult wcr = WebCheck.checkNetworkAvailability(ctx);
@@ -39,7 +37,6 @@ public class NetUtil {
 
     }
 
-    @RequiresPermission
     public static void sendRequest(Context ctx, RequestList requestList, NetUtilListener utilListener) {
         listener = utilListener;
         WebCheckResult wcr = WebCheck.checkNetworkAvailability(ctx);

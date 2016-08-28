@@ -12,15 +12,15 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.boha.monitor.library.activities.MonitorMapActivity;
 import com.boha.monitor.library.activities.SimpleMessagingActivity;
 import com.boha.monitor.library.dto.LocationTrackerDTO;
-import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.dto.SimpleMessageDTO;
 import com.boha.monitor.library.services.GPSLocationService;
-import com.boha.monitor.library.util.CacheUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.platform.library.MainActivity;
 import com.boha.platform.library.R;
 import com.google.android.gms.gcm.GcmListenerService;
@@ -36,7 +36,7 @@ import java.util.Date;
 public class MonitorGCMListenerService extends GcmListenerService {
 
     private static final Gson GSON = new Gson();
-    private static final String TAG = "MonGCMListenerService";
+    public static final String TAG = "MonGCMListenerService", BROADCAST_MESSAGE_RECEIVED = "com.boha.mon.BROADCAST_MESSAGE_RECEIVED";
 
     /**
      * Called when message is received.
@@ -92,40 +92,11 @@ public class MonitorGCMListenerService extends GcmListenerService {
             getApplicationContext().startService(w);
             return;
         }
-            CacheUtil.getCachedMessages(getApplicationContext(), new CacheUtil.CacheUtilListener() {
-            @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                response.getSimpleMessageList().add(message);
-                CacheUtil.cacheMessages(getApplicationContext(), response, new CacheUtil.CacheUtilListener() {
-                    @Override
-                    public void onFileDataDeserialized(ResponseDTO response) {
-
-                    }
-
-                    @Override
-                    public void onDataCached() {
-
-                            sendNotification(message);
-
-                    }
-
-                    @Override
-                    public void onError() {
-
-                    }
-                });
-            }
-
-            @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
-
-            }
-        });
+        Snappy.saveMessage(message, getApplicationContext(), null);
+        sendNotification(message);
+        Intent m = new Intent(BROADCAST_MESSAGE_RECEIVED);
+        LocalBroadcastManager bm = LocalBroadcastManager.getInstance(getApplicationContext());
+        bm.sendBroadcast(m);
     }
 
     /**

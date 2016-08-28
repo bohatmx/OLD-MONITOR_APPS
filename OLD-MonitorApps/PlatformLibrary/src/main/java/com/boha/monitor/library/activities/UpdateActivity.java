@@ -30,9 +30,9 @@ import com.boha.monitor.library.fragments.TaskStatusUpdateFragment;
 import com.boha.monitor.library.fragments.TaskTypeListFragment;
 import com.boha.monitor.library.services.PhotoUploadService;
 import com.boha.monitor.library.services.RequestSyncService;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.ThemeChooser;
 import com.boha.monitor.library.util.Util;
 import com.boha.monitor.library.util.WebCheck;
@@ -304,11 +304,7 @@ public class UpdateActivity extends AppCompatActivity
                             }
                         }
                         projectTaskListFragment.setProject(project);
-                        if (staff != null) {
-                            CacheUtil.cacheStaffData(getApplicationContext(), response, null);
-                        } else {
-                            CacheUtil.cacheMonitorProjects(getApplicationContext(), response, null);
-                        }
+                        Snappy.saveData(response,getApplicationContext(),null);
 
                     }
                 });
@@ -336,92 +332,37 @@ public class UpdateActivity extends AppCompatActivity
     private void cacheProject() {
         Log.e(LOG,"cacheProject ....");
         cachingBusy = true;
-        if (staff != null) {
-            CacheUtil.getCachedStaffData(getApplicationContext(), new CacheUtil.CacheUtilListener() {
-                @Override
-                public void onFileDataDeserialized(ResponseDTO response) {
-                    List<ProjectDTO> list = new ArrayList<>(response.getProjectList());
-                    for (ProjectDTO m : response.getProjectList()) {
-                        if (m.getProjectID().intValue() == project.getProjectID().intValue()) {
-                            list.add(project);
-                            continue;
-                        }
-                        list.add(m);
+        Snappy.getData(this, new Snappy.SnappyReadListener() {
+            @Override
+            public void onDataRead(ResponseDTO response) {
+                List<ProjectDTO> list = new ArrayList<>(response.getProjectList());
+                for (ProjectDTO m : response.getProjectList()) {
+                    if (m.getProjectID().intValue() == project.getProjectID().intValue()) {
+                        list.add(project);
+                        continue;
                     }
-                    response.setProjectList(list);
-                    CacheUtil.cacheStaffData(getApplicationContext(), response, new CacheUtil.CacheUtilListener() {
-                        @Override
-                        public void onFileDataDeserialized(ResponseDTO response) {
-
-                        }
-
-                        @Override
-                        public void onDataCached() {
-                            cachingBusy = false;
-                            Log.w(LOG,"project has been cached");
-                        }
-
-                        @Override
-                        public void onError() {
-
-                        }
-                    });
+                    list.add(m);
                 }
-
-                @Override
-                public void onDataCached() {
-
-                }
-
-                @Override
-                public void onError() {
-
-                }
-            });
-        }
-        if (monitor != null) {
-            CacheUtil.getCachedMonitorProjects(getApplicationContext(), new CacheUtil.CacheUtilListener() {
-                @Override
-                public void onFileDataDeserialized(ResponseDTO response) {
-                    List<ProjectDTO> list = new ArrayList<>(response.getProjectList());
-                    for (ProjectDTO m : response.getProjectList()) {
-                        if (m.getProjectID().intValue() == project.getProjectID().intValue()) {
-                            list.add(project);
-                            continue;
-                        }
-                        list.add(m);
+                response.setProjectList(list);
+                Snappy.saveData(response, getApplicationContext(), new Snappy.SnappyWriteListener() {
+                    @Override
+                    public void onDataWritten() {
+                        cachingBusy = false;
                     }
-                    response.setProjectList(list);
 
-                    CacheUtil.cacheMonitorProjects(getApplicationContext(), response, new CacheUtil.CacheUtilListener() {
-                        @Override
-                        public void onFileDataDeserialized(ResponseDTO response) {
+                    @Override
+                    public void onError(String message) {
 
-                        }
+                    }
+                });
+            }
 
-                        @Override
-                        public void onDataCached() {
-                            cachingBusy = false;
-                        }
+            @Override
+            public void onError(String message) {
 
-                        @Override
-                        public void onError() {
+            }
+        });
 
-                        }
-                    });
-                }
-
-                @Override
-                public void onDataCached() {
-
-                }
-
-                @Override
-                public void onError() {
-
-                }
-            });
-        }
     }
     @Override
     public void onBackPressed() {

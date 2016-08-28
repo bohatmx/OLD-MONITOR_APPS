@@ -6,7 +6,6 @@ import android.util.Log;
 
 import com.boha.monitor.library.dto.LocationTrackerDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
-import com.boha.monitor.library.dto.SimpleMessageDTO;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
@@ -63,8 +62,6 @@ public class CacheUtil {
     static int dataType;
     static Integer projectID;
     static ResponseDTO response;
-    static Integer projectSiteID;
-    static SessionPhoto sessionPhoto;
     static Context ctx;
     static final String JSON_DATA = "data.json", JSON_COUNTRIES = "countries.json", JSON_COMPANY_DATA = "company_data",
             JSON_PROJECT_DATA = "project_data", JSON_PROJECT_STATUS = "project_status", JSON_MON_PROJECTS = "monprojects.json",
@@ -82,31 +79,6 @@ public class CacheUtil {
 
     static Integer companyID;
 
-    public static void cacheCompanyData(Context context, ResponseDTO r, Integer cID, CacheUtilListener cacheUtilListener) {
-        dataType = CACHE_COMPANY;
-        response = r;
-        utilListener = cacheUtilListener;
-        companyID = cID;
-        ctx = context;
-        new CacheTask().execute();
-    }
-
-    public static void cachePortfolios(Context context, ResponseDTO r, CacheUtilListener cacheUtilListener) {
-        dataType = CACHE_PORTFOLIOS;
-        response = r;
-        utilListener = cacheUtilListener;
-        ctx = context;
-        new CacheTask().execute();
-    }
-
-    public static void cacheProjectData(Context context, ResponseDTO r, Integer pID, CacheUtilListener cacheUtilListener) {
-        dataType = CACHE_PROJECT;
-        response = r;
-        utilListener = cacheUtilListener;
-        projectID = pID;
-        ctx = context;
-        new CacheTask().execute();
-    }
 
     public static void cacheStaffData(Context context, ResponseDTO r, CacheUtilListener cacheUtilListener) {
         dataType = CACHE_STAFF_DATA;
@@ -120,15 +92,6 @@ public class CacheUtil {
         dataType = CACHE_MONITOR_PROJECTS;
         response = r;
         utilListener = cacheUtilListener;
-        ctx = context;
-        new CacheTask().execute();
-    }
-
-    public static void cacheProjectChats(Context context, ResponseDTO r, Integer pID, CacheUtilListener cacheUtilListener) {
-        dataType = CACHE_CHAT;
-        response = r;
-        utilListener = cacheUtilListener;
-        projectID = pID;
         ctx = context;
         new CacheTask().execute();
     }
@@ -279,81 +242,8 @@ public class CacheUtil {
         thread.start();
     }
 
-    public static void addMessage(final Context context, final SimpleMessageDTO s, final CacheUtilListener cacheUtilListener) {
 
-        getCachedMessages(context, new CacheUtilListener() {
-            @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                if (response.getSimpleMessageList() == null) {
-                    response.setSimpleMessageList(new ArrayList<SimpleMessageDTO>());
-                }
-                response.getSimpleMessageList().add(0, s);
-                cacheMessages(context, response, cacheUtilListener);
-            }
 
-            @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
-
-            }
-        });
-    }
-
-    public static void cacheMessages(final Context context, final ResponseDTO r, final CacheUtilListener cacheUtilListener) {
-
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String json = gson.toJson(r);
-                FileOutputStream outputStream = null;
-                try {
-                    outputStream = context.openFileOutput(JSON_MESSAGES, Context.MODE_PRIVATE);
-                    outputStream.write(json.getBytes());
-                    outputStream.close();
-                    File file = context.getFileStreamPath(JSON_MESSAGES);
-                    if (file != null) {
-                        Log.e(LOG, "Message cache written, path: " + file.getAbsolutePath() +
-                                " - length: " + file.length());
-                    }
-                    if (cacheUtilListener != null)
-                        cacheUtilListener.onDataCached();
-                } catch (IOException e) {
-                    Log.e(LOG, "Cache failed", e);
-                    if (cacheUtilListener != null)
-                        cacheUtilListener.onError();
-                }
-
-            }
-        });
-        thread.start();
-    }
-
-    public static void getCachedMessages(final Context context, final CacheUtilListener cacheUtilListener) {
-
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                FileInputStream stream = null;
-                try {
-                    stream = context.openFileInput(JSON_MESSAGES);
-                    String json = getStringFromInputStream(stream);
-                    ResponseDTO response = gson.fromJson(json, ResponseDTO.class);
-                    cacheUtilListener.onFileDataDeserialized(response);
-                } catch (IOException e) {
-                    Log.e(LOG, "## message cache not found, will start new cache");
-                    ResponseDTO response = new ResponseDTO();
-                    response.setSimpleMessageList(new ArrayList<SimpleMessageDTO>());
-                    cacheUtilListener.onFileDataDeserialized(response);
-                }
-
-            }
-        });
-        thread.start();
-    }
 
     public static void getCachedStaffData(Context context, CacheUtilListener cacheUtilListener) {
         dataType = CACHE_STAFF_DATA;
@@ -369,23 +259,6 @@ public class CacheUtil {
         new CacheRetrieveTask().execute();
     }
 
-    public static void getCachedProjectData(Context context, Integer id, CacheUtilListener cacheUtilListener) {
-        Log.d(LOG, "################ getting cached project data ..................");
-        dataType = CACHE_PROJECT;
-        utilListener = cacheUtilListener;
-        ctx = context;
-        projectID = id;
-        new CacheRetrieveTask().execute();
-    }
-
-    public static void getCachedCompanyData(Context context, Integer id, CacheUtilListener cacheUtilListener) {
-        Log.d(LOG, "################ getting cached project data ..................");
-        dataType = CACHE_COMPANY;
-        utilListener = cacheUtilListener;
-        ctx = context;
-        companyID = id;
-        new CacheRetrieveTask().execute();
-    }
 
     public static void getCachedProjectChats(Context context, Integer id, CacheUtilListener cacheUtilListener) {
         dataType = CACHE_CHAT;
@@ -401,13 +274,6 @@ public class CacheUtil {
         utilListener = cacheUtilListener;
         ctx = context;
         projectID = id;
-        new CacheRetrieveTask().execute();
-    }
-
-    public static void getCachedPortfolioList(Context context, CacheUtilListener cacheUtilListener) {
-        dataType = CACHE_PORTFOLIOS;
-        utilListener = cacheUtilListener;
-        ctx = context;
         new CacheRetrieveTask().execute();
     }
 

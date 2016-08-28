@@ -3,10 +3,12 @@ package com.boha.monitor.staffapp.activities;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -22,6 +24,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.view.PagerTitleStrip;
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.DrawerLayout;
@@ -54,6 +57,7 @@ import com.boha.monitor.library.dto.PhotoUploadDTO;
 import com.boha.monitor.library.dto.ProjectDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
+import com.boha.monitor.library.dto.SimpleMessageDTO;
 import com.boha.monitor.library.dto.StaffDTO;
 import com.boha.monitor.library.fragments.MediaDialogFragment;
 import com.boha.monitor.library.fragments.MonitorListFragment;
@@ -65,14 +69,15 @@ import com.boha.monitor.library.fragments.StaffProfileFragment;
 import com.boha.monitor.library.fragments.TaskTypeListFragment;
 import com.boha.monitor.library.services.PhotoUploadService;
 import com.boha.monitor.library.services.RequestSyncService;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.DepthPageTransformer;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.ThemeChooser;
 import com.boha.monitor.library.util.Util;
 import com.boha.monitor.staffapp.R;
 import com.boha.monitor.staffapp.fragments.NavigationDrawerFragment;
+import com.boha.monitor.staffapp.services.StaffGCMListenerService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -179,6 +184,10 @@ public class StaffMainActivity extends AppCompatActivity implements
                 SharedUtil.getCompany(ctx).getCompanyName(), "Project Monitoring",
                 ContextCompat.getDrawable(getApplicationContext(), com.boha.platform.library.R.drawable.glasses48));
         getCache();
+
+        LocalBroadcastManager bm = LocalBroadcastManager.getInstance(getApplicationContext());
+        bm.registerReceiver(new PhotoBroadcastReceiver(), new IntentFilter(PhotoUploadService.BROADCAST_PHOTO_UPLOADED));
+        bm.registerReceiver(new MessageBroadcastReceiver(),new IntentFilter(StaffGCMListenerService.BROADCAST_MESSAGE_RECEIVED));
     }
 
 
@@ -195,9 +204,9 @@ public class StaffMainActivity extends AppCompatActivity implements
 
     @DebugLog
     private void getCache() {
-        CacheUtil.getCachedStaffData(ctx, new CacheUtil.CacheUtilListener() {
+        Snappy.getData(getApplicationContext(), new Snappy.SnappyReadListener() {
             @Override
-            public void onFileDataDeserialized(ResponseDTO r) {
+            public void onDataRead(ResponseDTO r) {
                 response = r;
                 if (!response.getProjectList().isEmpty()) {
                     getProjectsLocationConfirmed();
@@ -205,17 +214,11 @@ public class StaffMainActivity extends AppCompatActivity implements
                 } else {
                     getRemoteStaffData(true);
                 }
-
             }
 
             @Override
-            public void onDataCached() {
+            public void onError(String message) {
 
-            }
-
-            @Override
-            public void onError() {
-                getRemoteStaffData(true);
             }
         });
     }
@@ -240,18 +243,14 @@ public class StaffMainActivity extends AppCompatActivity implements
                         companyDataRefreshed = true;
                         response = r;
                         buildPages();
-                        CacheUtil.cacheStaffData(getApplicationContext(), r, new CacheUtil.CacheUtilListener() {
+                        Snappy.saveData(response, ctx, new Snappy.SnappyWriteListener() {
                             @Override
-                            public void onFileDataDeserialized(ResponseDTO response) {
+                            public void onDataWritten() {
 
                             }
 
                             @Override
-                            public void onDataCached() {
-                            }
-
-                            @Override
-                            public void onError() {
+                            public void onError(String message) {
 
                             }
                         });
@@ -620,9 +619,9 @@ public class StaffMainActivity extends AppCompatActivity implements
                 projectListFragment.refreshProject(selectedProject);
 
                 //update cache
-                CacheUtil.getCachedStaffData(ctx, new CacheUtil.CacheUtilListener() {
+                Snappy.getData(ctx, new Snappy.SnappyReadListener() {
                     @Override
-                    public void onFileDataDeserialized(ResponseDTO response) {
+                    public void onDataRead(ResponseDTO response) {
                         List<ProjectDTO> list = new ArrayList<>();
                         for (ProjectDTO p : response.getProjectList()) {
                             if (p.getProjectID().intValue() == selectedProject.getProjectID().intValue()) {
@@ -633,16 +632,11 @@ public class StaffMainActivity extends AppCompatActivity implements
 
                         }
                         response.setProjectList(list);
-                        CacheUtil.cacheStaffData(ctx, response, null);
+                        Snappy.saveData(response,ctx, null);
                     }
 
                     @Override
-                    public void onDataCached() {
-
-                    }
-
-                    @Override
-                    public void onError() {
+                    public void onError(String message) {
 
                     }
                 });
@@ -1054,4 +1048,31 @@ public class StaffMainActivity extends AppCompatActivity implements
     NavigationView navigationView;
     Menu mMenu;
     CompanyDTO company;
+
+    private void doPhotoSnack(int count) {
+        Util.createSnackBar(mPager,"Photos uploaded: " + count, "OK", "GREEN");
+    }
+    private void doMessageSnack(SimpleMessageDTO message) {
+        Util.createSnackBar(mPager,"Message received", "OK", "GREEN");
+    }
+
+    private class PhotoBroadcastReceiver extends android.content.BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            int uploaded = intent.getIntExtra("uploaded", 0);
+            Log.w(TAG, "onReceive: photos uploaded: " + uploaded);
+            doPhotoSnack(uploaded);
+        }
+    }
+    private class MessageBroadcastReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            SimpleMessageDTO message = (SimpleMessageDTO) intent.getSerializableExtra("message");
+            Log.w(TAG, "onReceive: message received ");
+            doMessageSnack(message);
+        }
+    }
+
 }

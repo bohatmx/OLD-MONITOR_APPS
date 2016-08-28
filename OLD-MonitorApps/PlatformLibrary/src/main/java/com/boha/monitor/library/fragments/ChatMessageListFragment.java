@@ -14,15 +14,13 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.boha.monitor.library.activities.MonApp;
+import com.boha.monitor.library.adapters.ChatMessageListAdapter;
 import com.boha.monitor.library.dto.ChatDTO;
 import com.boha.monitor.library.dto.ChatMessageDTO;
 import com.boha.monitor.library.dto.ProjectDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.dto.StaffDTO;
-import com.boha.monitor.library.adapters.ChatMessageListAdapter;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
 import com.boha.monitor.library.util.Util;
@@ -119,27 +117,7 @@ public class ChatMessageListFragment extends Fragment implements PageFragment {
     }
     private void getCachedChat() {
         Log.w(LOG,"### starting getCachedChat");
-        CacheUtil.getCachedProjectChats(ctx, project.getProjectID(), new CacheUtil.CacheUtilListener() {
-            @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                if (response.getChatMessageList() != null) {
-                    Log.i(LOG, "++ cached messages found: " + response.getChatMessageList().size());
-                    chatMessageList = response.getChatMessageList();
-                    setMessageListView();
-                }
-                getRemoteMessages();
-            }
 
-            @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
-
-            }
-        });
     }
 
     private void getRemoteMessages() {

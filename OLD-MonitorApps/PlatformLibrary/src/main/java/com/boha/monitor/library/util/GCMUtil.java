@@ -6,6 +6,7 @@ package com.boha.monitor.library.util;
  */
 
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.util.Log;
 
@@ -28,84 +29,91 @@ public class GCMUtil {
     }
 
     static Context ctx;
-    static GCMUtilListener gcmUtilListener;
     static String registrationID, msg;
     static final String LOG = "GCMUtil";
     static GoogleCloudMessaging gcm;
-    static boolean weCool;
 
-
+public static final String TAG = GCMUtil.class.getSimpleName();
     /**
      * Start device registration to Google Cloud Messaging
      * Receive GCM registration string and complete GCM registration by calling back-end
      *
-     * @see com.boha.monitor.library.util.GCMUtil.GCMUtilListener
      * @param context
      * @param listener
+     * @see com.boha.monitor.library.util.GCMUtil.GCMUtilListener
      */
     public static void startGCMRegistration(final Context context, final GCMUtilListener listener) {
         ctx = context;
-        gcmUtilListener = listener;
-        weCool = false;
-
-        Thread gcmThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Log.e(LOG, "... startin GCM registration");
-                try {
-                    if (gcm == null) {
-                        gcm = GoogleCloudMessaging.getInstance(ctx);
-                    }
-                    registrationID = gcm.register(context.getString(R.string.gcm_sender_id));
-                    msg = "Device registered, registration ID = \n" + registrationID;
-                    SharedUtil.storeRegistrationId(ctx, registrationID);
-                    RequestDTO w = new RequestDTO();
-                    w.setRequestType(RequestDTO.SEND_GCM_REGISTRATION);
-                    w.setGcmRegistrationID(registrationID);
-                    NetUtil.sendRequest(ctx, w, new NetUtil.NetUtilListener() {
-                        @Override
-                        public void onResponse(final ResponseDTO response) {
-                            if (response.getStatusCode() == 0) {
-                                Log.w(LOG, "############ Device registered to Google on MONITOR PLATFORM server GCM regime");
-                                GcmDeviceDTO gcmDevice = new GcmDeviceDTO();
-                                gcmDevice.setManufacturer(Build.MANUFACTURER);
-                                gcmDevice.setModel(Build.MODEL);
-                                gcmDevice.setSerialNumber(Build.SERIAL);
-                                gcmDevice.setAndroidVersion(Build.VERSION.RELEASE);
-                                gcmDevice.setProduct(Build.PRODUCT);
-                                gcmDevice.setApp(ctx.getPackageName());
-                                gcmDevice.setRegistrationID(registrationID);
-                                SharedUtil.saveGCMDevice(ctx,gcmDevice);
-                                weCool = true;
-                                listener.onDeviceRegistered(registrationID);
-                            }
-                        }
-
-                        @Override
-                        public void onError(final String message) {
-                            if (weCool) {
-                                return;
-                            }
-                            Log.e(LOG, "############ Device failed to register on server GCM regime\n" + message);
-//                            listener.onGCMError();
-                        }
-
-                        @Override
-                        public void onWebSocketClose() {
-                            Log.d(LOG, "############## GCMUtil onWebSocketClose");
-                        }
-                    });
-
-                    Log.i(LOG, msg);
-
-                } catch (IOException e) {
-                    listener.onGCMError();
-                }
-            }
-        });
-        gcmThread.start();
+        GCMTask task = new GCMTask(listener);
+        task.execute();
     }
 
 
+    private static class GCMTask extends AsyncTask<Void, Void, Integer> {
+
+        private GCMUtilListener listener;
+
+        public GCMTask(GCMUtilListener listener) {
+            this.listener = listener;
+        }
+
+        @Override
+        protected Integer doInBackground(Void... voids) {
+            Log.e(TAG, "doInBackground: startGCMRegistration ... humming along" );
+            try {
+                if (gcm == null) {
+                    gcm = GoogleCloudMessaging.getInstance(ctx);
+                }
+                registrationID = gcm.register(ctx.getString(R.string.gcm_sender_id));
+                msg = "Device registered, registration ID = \n" + registrationID;
+                SharedUtil.storeRegistrationId(ctx, registrationID);
+                RequestDTO w = new RequestDTO();
+                w.setRequestType(RequestDTO.SEND_GCM_REGISTRATION);
+                w.setGcmRegistrationID(registrationID);
+                NetUtil.sendRequest(ctx, w, new NetUtil.NetUtilListener() {
+                    @Override
+                    public void onResponse(final ResponseDTO response) {
+                        if (response.getStatusCode() == 0) {
+                            Log.w(LOG, "############ Device registered to Google on MONITOR PLATFORM server GCM regime");
+                            GcmDeviceDTO gcmDevice = new GcmDeviceDTO();
+                            gcmDevice.setManufacturer(Build.MANUFACTURER);
+                            gcmDevice.setModel(Build.MODEL);
+                            gcmDevice.setSerialNumber(Build.SERIAL);
+                            gcmDevice.setAndroidVersion(Build.VERSION.RELEASE);
+                            gcmDevice.setProduct(Build.PRODUCT);
+                            gcmDevice.setApp(ctx.getPackageName());
+                            gcmDevice.setRegistrationID(registrationID);
+                            SharedUtil.saveGCMDevice(ctx, gcmDevice);
+
+                        }
+                    }
+
+                    @Override
+                    public void onError(final String message) {
+                        Log.e(LOG, "############ Device failed to register on server GCM regime\n" + message);
+
+                    }
+
+                    @Override
+                    public void onWebSocketClose() {
+                        Log.d(LOG, "############## GCMUtil onWebSocketClose");
+                    }
+                });
+
+                Log.i(LOG, msg);
+
+            } catch (IOException e) {
+                return 9;
+            }
+            return 0;
+        }
+
+        @Override
+        protected void onPostExecute(Integer p) {
+            if (p == 0) {
+                listener.onDeviceRegistered(registrationID);
+            }
+        }
+    }
 
 }

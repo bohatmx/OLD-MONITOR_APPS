@@ -21,6 +21,9 @@ import com.boha.monitor.library.util.Statics;
 import com.boha.platform.library.R;
 import com.google.android.gms.analytics.GoogleAnalytics;
 import com.google.android.gms.analytics.Tracker;
+import com.snappydb.DB;
+import com.snappydb.DBFactory;
+import com.snappydb.SnappydbException;
 import com.squareup.picasso.OkHttpDownloader;
 import com.squareup.picasso.Picasso;
 
@@ -68,6 +71,7 @@ public class MonApp extends Application implements Application.ActivityLifecycle
     private boolean messageActivityVisible;
     static final String LOG = MonApp.class.getSimpleName();
     public static Picasso picasso;
+    private static DB snappyDB;
     static final long MAX_CACHE_SIZE = 1024 * 1024 * 1024; // 1 GB cache on device
 //
 //    public static RefWatcher getRefWatcher(Context context) {
@@ -76,6 +80,19 @@ public class MonApp extends Application implements Application.ActivityLifecycle
 //    }
 //
 //    private RefWatcher refWatcher;
+
+
+    public  static DB getSnappyDB(Context ctx) {
+        try {
+            if (snappyDB == null || !snappyDB.isOpen()) {
+                snappyDB = DBFactory.open(ctx);
+            }
+        } catch (SnappydbException e) {
+            Log.e(LOG, "getSnappyDB: ", e );
+        }
+
+        return snappyDB;
+    }
 
     public enum TrackerName {
         APP_TRACKER, // Tracker used only in this app.

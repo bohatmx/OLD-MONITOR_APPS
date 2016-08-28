@@ -22,10 +22,10 @@ import com.boha.monitor.library.dto.ResponseDTO;
 import com.boha.monitor.library.dto.SimpleMessageDTO;
 import com.boha.monitor.library.dto.SimpleMessageDestinationDTO;
 import com.boha.monitor.library.dto.StaffDTO;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
 import com.boha.monitor.library.util.SimpleDividerItemDecoration;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.Util;
 import com.boha.platform.library.R;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
@@ -134,23 +134,16 @@ public class SimpleMessageFragment extends Fragment implements PageFragment {
     }
 
     private void getCachedMessages() {
-        CacheUtil.getCachedMessages(getActivity(), new CacheUtil.CacheUtilListener() {
+
+        Snappy.getMessages(getActivity(), new Snappy.SnappyReadMessagesListener() {
             @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                if (response.getSimpleMessageList() == null) {
-                    response.setSimpleMessageList(new ArrayList<SimpleMessageDTO>());
-                }
-                simpleMessageList = response.getSimpleMessageList();
+            public void onDataRead(List<SimpleMessageDTO> messages) {
+                simpleMessageList = messages;
                 setList();
             }
 
             @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
+            public void onError(String message) {
 
             }
         });
@@ -252,7 +245,6 @@ public class SimpleMessageFragment extends Fragment implements PageFragment {
                             }
                             simpleMessageList.add(msg);
                             adapter.notifyDataSetChanged();
-                            CacheUtil.addMessage(getActivity(), msg,null);
                         }
                     }
                 });

@@ -18,7 +18,6 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.boha.monitor.library.activities.MonApp;
 import com.boha.monitor.library.activities.PhotoListActivity;
 import com.boha.monitor.library.adapters.StatusReportAdapter;
 import com.boha.monitor.library.dto.PhotoUploadDTO;
@@ -27,8 +26,8 @@ import com.boha.monitor.library.dto.ProjectTaskDTO;
 import com.boha.monitor.library.dto.ProjectTaskStatusDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.NetUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.Statics;
 import com.boha.monitor.library.util.Util;
 import com.boha.platform.library.R;
@@ -48,7 +47,6 @@ import static com.boha.monitor.library.util.Util.showErrorToast;
 public class StatusReportFragment extends Fragment implements PageFragment {
 
 
-
     public static StatusReportFragment newInstance(ResponseDTO r) {
         StatusReportFragment fragment = new StatusReportFragment();
         Bundle args = new Bundle();
@@ -60,7 +58,6 @@ public class StatusReportFragment extends Fragment implements PageFragment {
 
     public StatusReportFragment() {
     }
-
 
 
     @Override
@@ -84,14 +81,13 @@ public class StatusReportFragment extends Fragment implements PageFragment {
     FloatingActionButton fab;
 
     @Override
-    public View onCreateView( LayoutInflater inflater, ViewGroup container,
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         Log.d(LOG, "########## onCreateView");
         this.inflater = inflater;
         ctx = getActivity();
         view = inflater.inflate(R.layout.fragment_status_list, container, false);
         setFields();
-
 
 
         return view;
@@ -146,7 +142,7 @@ public class StatusReportFragment extends Fragment implements PageFragment {
             @Override
             public void onClick(View view) {
                 Intent w = new Intent(getActivity(), PhotoListActivity.class);
-                w.putExtra("project",project);
+                w.putExtra("project", project);
                 startActivity(w);
             }
         });
@@ -154,7 +150,7 @@ public class StatusReportFragment extends Fragment implements PageFragment {
             @Override
             public void onClick(View view) {
                 Intent w = new Intent(getActivity(), PhotoListActivity.class);
-                w.putExtra("project",project);
+                w.putExtra("project", project);
                 startActivity(w);
             }
         });
@@ -180,7 +176,7 @@ public class StatusReportFragment extends Fragment implements PageFragment {
         long days = TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS);
 
         w.setNumberOfDays(Integer.parseInt("" + days));
-        Log.e(LOG,"## number of days: " + w.getNumberOfDays());
+        Log.e(LOG, "## number of days: " + w.getNumberOfDays());
         final Activity act = getActivity();
 
         mListener.setBusy(true);
@@ -202,24 +198,18 @@ public class StatusReportFragment extends Fragment implements PageFragment {
                                 setList();
                                 response.setStartDate(startDate.getTime());
                                 response.setEndDate(endDate.getTime());
-                                CacheUtil.cacheProjectStatus(ctx, response, project.getProjectID(), new CacheUtil.CacheUtilListener() {
+
+                                Snappy.saveStatus(project, getActivity(), new Snappy.SnappyWriteProjectStatusListener() {
                                     @Override
-                                    public void onFileDataDeserialized(ResponseDTO response) {
+                                    public void onDataWritten() {
 
                                     }
 
                                     @Override
-                                    public void onDataCached() {
-
-                                    }
-
-                                    @Override
-                                    public void onError() {
+                                    public void onError(String message) {
 
                                     }
                                 });
-                            } else {
-                                getProjectStatus();
                             }
                         }
                     }
@@ -254,35 +244,28 @@ public class StatusReportFragment extends Fragment implements PageFragment {
 
     public void getCachedStatus() {
 
-        CacheUtil.getCachedProjectStatus(ctx, project.getProjectID(), new CacheUtil.CacheUtilListener() {
+        Snappy.getStatus(getActivity(), project.getProjectID(), new Snappy.SnappyReadStatusListener() {
             @Override
-            public void onFileDataDeserialized(ResponseDTO response) {
-                if (response != null) {
-                    if (!response.getProjectList().isEmpty()) {
-                        project = response.getProjectList().get(0);
-                        projectTaskList = project.getProjectTaskList();
-                        photoUploadList = project.getPhotoUploadList();
-                        if (response.getStartDate() != null) {
-                            btnStart.setText(sdf.format(response.getStartDate()));
-                            btnEnd.setText(sdf.format(response.getEndDate()));
-                            startDate = new Date(response.getStartDate());
-                            endDate = new Date(response.getEndDate());
-                        }
-                        setList();
-                        animateHeroHeight();
-                    }
+            public void onDataRead(ProjectDTO project) {
+                if (project != null) {
+
+                    projectTaskList = project.getProjectTaskList();
+                    photoUploadList = project.getPhotoUploadList();
+//                        if (response.getStartDate() != null) {
+//                            btnStart.setText(sdf.format(response.getStartDate()));
+//                            btnEnd.setText(sdf.format(response.getEndDate()));
+//                            startDate = new Date(response.getStartDate());
+//                            endDate = new Date(response.getEndDate());
+//                        }
+                    setList();
+                    animateHeroHeight();
+
                 }
                 getProjectStatus();
-
             }
 
             @Override
-            public void onDataCached() {
-
-            }
-
-            @Override
-            public void onError() {
+            public void onError(String message) {
 
             }
         });
@@ -292,7 +275,7 @@ public class StatusReportFragment extends Fragment implements PageFragment {
         Log.d(LOG, "########## setList");
         projectTaskStatusList = new ArrayList<>();
         int count = 0;
-        for (ProjectTaskDTO projectTaskDTO: projectTaskList) {
+        for (ProjectTaskDTO projectTaskDTO : projectTaskList) {
             projectTaskStatusList.addAll(projectTaskDTO.getProjectTaskStatusList());
             if (projectTaskDTO.getPhotoUploadList() != null) {
                 count += projectTaskDTO.getPhotoUploadList().size();
@@ -314,6 +297,7 @@ public class StatusReportFragment extends Fragment implements PageFragment {
 
 
     }
+
     DatePickerDialog dpStart;
     int mYear, mMonth, mDay;
 
@@ -371,13 +355,14 @@ public class StatusReportFragment extends Fragment implements PageFragment {
     }
 
     StatusReportListener mListener;
+
     @Override
     public void onAttach(Activity activity) {
         if (activity instanceof StatusReportListener) {
-            mListener = (StatusReportListener)activity;
+            mListener = (StatusReportListener) activity;
         } else {
             throw new ClassCastException("Host " + activity.getLocalClassName() +
-            " must implement StatusReportListener");
+                    " must implement StatusReportListener");
         }
         super.onAttach(activity);
 
@@ -394,6 +379,7 @@ public class StatusReportFragment extends Fragment implements PageFragment {
         super.onDestroy();
 
     }
+
     static final String LOG = StatusReportFragment.class.getSimpleName();
 
     @Override
@@ -401,7 +387,9 @@ public class StatusReportFragment extends Fragment implements PageFragment {
         Util.fadeIn(topView);
 
     }
+
     String pageTitle;
+
     @Override
     public void setPageTitle(String title) {
         pageTitle = title;
@@ -411,7 +399,9 @@ public class StatusReportFragment extends Fragment implements PageFragment {
     public String getPageTitle() {
         return pageTitle;
     }
+
     int primaryColor, darkColor;
+
     @Override
     public void setThemeColors(int primaryColor, int darkColor) {
         this.primaryColor = primaryColor;

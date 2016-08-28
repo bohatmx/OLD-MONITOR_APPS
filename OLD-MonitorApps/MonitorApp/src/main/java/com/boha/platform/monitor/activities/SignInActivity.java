@@ -1,8 +1,6 @@
 package com.boha.platform.monitor.activities;
 
 import android.Manifest;
-import android.accounts.Account;
-import android.accounts.AccountManager;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -29,16 +27,14 @@ import com.boha.monitor.library.dto.GcmDeviceDTO;
 import com.boha.monitor.library.dto.MonitorDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
-import com.boha.monitor.library.util.CacheUtil;
 import com.boha.monitor.library.util.GCMUtil;
 import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
+import com.boha.monitor.library.util.Snappy;
 import com.boha.monitor.library.util.Util;
 import com.boha.platform.monitor.R;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
-
-import org.acra.ACRA;
 
 import java.util.ArrayList;
 
@@ -70,7 +66,6 @@ public class SignInActivity extends AppCompatActivity {
 
         setFields();
         banner.setImageDrawable(Util.getRandomBackgroundImage(ctx));
-        getEmail();
     }
     @Override
     public void onResume() {
@@ -102,25 +97,7 @@ public class SignInActivity extends AppCompatActivity {
 
             }
         }
-        if (ContextCompat.checkSelfPermission(this,Manifest.permission.GET_ACCOUNTS)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.GET_ACCOUNTS)) {
 
-                // Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-            } else {
-
-                // No explanation needed, we can request the permission.
-
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.GET_ACCOUNTS},
-                        MY_PERMISSIONS_GET_ACCOUNTS);
-
-            }
-        }
     }
     static final int MY_PERMISSIONS_ACCESS_FINE_LOCATION = 77;
     static final int MY_PERMISSIONS_GET_ACCOUNTS = 75;
@@ -143,7 +120,6 @@ public class SignInActivity extends AppCompatActivity {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.w(LOG,"GET_ACCOUNTS permission granted");
-                    getEmail();
 
                 } else {
                     Log.e(LOG,"GET_ACCOUNTS permission denied");
@@ -285,24 +261,21 @@ public class SignInActivity extends AppCompatActivity {
                         if (!response.getPhotoUploadList().isEmpty()) {
                             SharedUtil.savePhoto(ctx, response.getPhotoUploadList().get(0));
                         }
-                        try {
-                            ACRA.getErrorReporter().putCustomData("monitorID", ""
-                                    + response.getMonitorList().get(0).getMonitorID());
-                        } catch (Exception e) {//ignore}
-                        }
-                        CacheUtil.cacheData(ctx, response, CacheUtil.CACHE_DATA, new CacheUtil.CacheUtilListener() {
-                            @Override
-                            public void onFileDataDeserialized(ResponseDTO response) {}
 
+                        Snappy.saveData(response, ctx, new Snappy.SnappyWriteListener() {
                             @Override
-                            public void onDataCached() {
+                            public void onDataWritten() {
                                 Intent intent = new Intent(ctx, ThemeSelectorActivity.class);
                                 startActivity(intent);
                             }
 
                             @Override
-                            public void onError() {}
+                            public void onError(String message) {
+
+                            }
                         });
+
+
                     }
                 });
             }
@@ -416,29 +389,7 @@ public class SignInActivity extends AppCompatActivity {
     }
 
 
-    public void getEmail() {
-        Log.d(LOG,"getEmail accounts");
-        if (ContextCompat.checkSelfPermission(this,Manifest.permission.GET_ACCOUNTS)
-                != PackageManager.PERMISSION_GRANTED) {
-            checkPermission();
-            return;
-        }
-        AccountManager am = AccountManager.get(getApplicationContext());
-        Account[] accts = am.getAccounts();
-//        if (accts.length == 0) {
-//            showErrorToast(ctx, getString(R.string.no_accounts));
-//            finish();
-//            return;
-//        }
-        if (accts != null) {
-            tarList.add(ctx.getResources().getString(R.string.select_email));
-            for (int i = 0; i < accts.length; i++) {
-                tarList.add(accts[i].name);
 
-            }
-        }
-
-    }
     ArrayList<String> tarList = new ArrayList<String>();
     Menu mMenu;
     public void setBusyIndicator(final boolean refreshing) {

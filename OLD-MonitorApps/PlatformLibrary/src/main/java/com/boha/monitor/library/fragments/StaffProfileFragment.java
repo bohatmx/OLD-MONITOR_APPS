@@ -186,37 +186,40 @@ public class StaffProfileFragment extends Fragment implements PageFragment {
     }
 
     private void getRemotePhotos() {
-        Log.d(LOG,".............getRemotePhotos starting");
+        Log.d(TAG,".............getRemotePhotos starting");
         RequestDTO w = new RequestDTO(RequestDTO.GET_STAFF_PHOTOS);
         w.setStaffID(SharedUtil.getCompanyStaff(getActivity()).getStaffID());
 
-        listener.setBusy(true);
+//        listener.setBusy(true);
         NetUtil.sendRequest(getActivity(), w, new NetUtil.NetUtilListener() {
             @Override
             public void onResponse(final ResponseDTO response) {
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        listener.setBusy(false);
-                        if (response.getStatusCode() == 0) {
-                            if (!response.getPhotoUploadList().isEmpty()) {
-                                SharedUtil.savePhoto(getActivity(), response.getPhotoUploadList().get(0));
-                                setPicture(response.getPhotoUploadList().get(0));
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+//                            listener.setBusy(false);
+                            if (response.getStatusCode() == 0) {
+                                if (!response.getPhotoUploadList().isEmpty()) {
+                                    SharedUtil.savePhoto(ctx, response.getPhotoUploadList().get(0));
+                                    setPicture(response.getPhotoUploadList().get(0));
+                                }
                             }
                         }
-                    }
-                });
-
+                    });
+                }
             }
 
             @Override
             public void onError(String message) {
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        listener.setBusy(false);
-                    }
-                });
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            listener.setBusy(false);
+                        }
+                    });
+                }
             }
 
             @Override
@@ -226,9 +229,9 @@ public class StaffProfileFragment extends Fragment implements PageFragment {
         });
     }
 
-    static final String LOG = "StaffProfileFragment";
+    static final String TAG = "StaffProfileFragment";
     public void setPicture(PhotoUploadDTO photo) {
-        Log.d(LOG,"setPicture " + photo.getThumbFilePath() + " uri: " + photo.getUri());
+        Log.d(TAG,"setPicture " + photo.getThumbFilePath() + " uri: " + photo.getUri());
         if (photo.getThumbFilePath() == null) {
             if (photo.getUri() != null) {
                 Picasso.with(getActivity()).load(photo.getUri()).into(hero);
@@ -308,7 +311,7 @@ public class StaffProfileFragment extends Fragment implements PageFragment {
         try {
             listener = (StaffFragmentListener) activity;
         } catch (ClassCastException e) {
-            throw new ClassCastException(activity.toString()
+            throw new ClassCastException(activity.getLocalClassName()
                     + " must implement StaffFragmentListener");
         }
     }
