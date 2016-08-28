@@ -15,10 +15,19 @@ public class SimpleMessageDTO implements Serializable, Comparable<SimpleMessageD
     private Integer companyID;
     private Integer staffID;
     private Integer projectID;
+    private boolean sendToAllinCompany;
     private LocationTrackerDTO locationTracker;
     private List<SimpleMessageDestinationDTO> simpleMessageDestinationList;
     private List<SimpleMessageImageDTO> simpleMessageImageList;
 
+
+    public boolean isSendToAllinCompany() {
+        return sendToAllinCompany;
+    }
+
+    public void setSendToAllinCompany(boolean sendToAllinCompany) {
+        this.sendToAllinCompany = sendToAllinCompany;
+    }
 
     public List<SimpleMessageDestinationDTO> getSimpleMessageDestinationList() {
         return simpleMessageDestinationList;

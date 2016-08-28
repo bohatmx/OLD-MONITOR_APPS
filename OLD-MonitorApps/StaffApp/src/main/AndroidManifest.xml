@@ -3,7 +3,7 @@
     package="com.boha.monitor.staffapp" >
 
     <!-- PROD API KEY:   -->
-    <!-- DEV API KEY: AIzaSyAOssinuzAEQ6ZBXwg55xpt8j7HkTk_LBI -->
+    <!-- DEV API KEY: AIzaSyCvO427EOEQwctLHoV41zFFxGOnzLuPdis -->
 
 
     <!-- PERMISSIONS -->
@@ -28,9 +28,13 @@
         android:theme="@style/BrownTheme" >
 
         <!-- Keys and metadata -->
+
+        <meta-data
+            android:name="com.google.android.awareness.API_KEY"
+            android:value="AIzaSyCvO427EOEQwctLHoV41zFFxGOnzLuPdis" />
         <meta-data
             android:name="com.google.android.maps.v2.API_KEY"
-            android:value="AIzaSyAOssinuzAEQ6ZBXwg55xpt8j7HkTk_LBI" />
+            android:value="AIzaSyCvO427EOEQwctLHoV41zFFxGOnzLuPdis" />
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />

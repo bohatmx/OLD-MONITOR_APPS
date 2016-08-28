@@ -24,6 +24,7 @@ import android.widget.TextView;
 
 import com.boha.monitor.library.adapters.MonitorListAdapter;
 import com.boha.monitor.library.adapters.PopupListIconAdapter;
+import com.boha.monitor.library.dto.CompanyDTO;
 import com.boha.monitor.library.dto.MonitorDTO;
 import com.boha.monitor.library.dto.RequestDTO;
 import com.boha.monitor.library.dto.ResponseDTO;
@@ -125,6 +126,12 @@ public class MonitorListFragment extends Fragment implements PageFragment {
         ctx = getActivity();
         view = inflater.inflate(R.layout.fragment_monitor_list, container, false);
 
+        setFields();
+        setList();
+        return view;
+    }
+
+    private void setFields() {
         paneLayout = (SlidingUpPanelLayout)view.findViewById(R.id.sliding_layout);
         editMessage = (EditText) view.findViewById(R.id.FSL_message);
         btnSend = (Button) view.findViewById(R.id.FSL_btnSend);
@@ -216,15 +223,6 @@ public class MonitorListFragment extends Fragment implements PageFragment {
                 });
             }
         });
-        setList();
-        return view;
-    }
-
-    public void refreshMonitorList(List<MonitorDTO> monitorList) {
-        this.monitorList = monitorList;
-        if (recyclerView != null) {
-            setList();
-        }
     }
 
     private void showDialog() {
@@ -256,8 +254,11 @@ public class MonitorListFragment extends Fragment implements PageFragment {
         } else {
             type = STAFF;
         }
+        CompanyDTO company = SharedUtil.getCompany(getActivity());
         SimpleMessageDTO simpleMsg = new SimpleMessageDTO();
+        simpleMsg.setCompanyID(company.getCompanyID());
         List<SimpleMessageDestinationDTO> destList = new ArrayList<>();
+
         for (MonitorDTO m: selectedMonitors) {
             SimpleMessageDestinationDTO dest = new SimpleMessageDestinationDTO();
             dest.setMonitorID(m.getMonitorID());
@@ -290,7 +291,7 @@ public class MonitorListFragment extends Fragment implements PageFragment {
         }
 
         simpleMsg.setMessage(editMessage.getText().toString());
-
+        simpleMsg.setSimpleMessageDestinationList(destList);
         RequestDTO w = new RequestDTO(RequestDTO.SEND_SIMPLE_MESSAGE);
         w.setSimpleMessage(simpleMsg);
 
@@ -417,6 +418,8 @@ public class MonitorListFragment extends Fragment implements PageFragment {
     }
 
     private void showPopup(final MonitorDTO monitor) {
+        selectedMonitors = new ArrayList<>();
+        selectedMonitors.add(monitor);
         final ListPopupWindow pop = new ListPopupWindow(getActivity());
         LayoutInflater inf = (LayoutInflater) ctx.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View v = inf.inflate(R.layout.hero_image_popup, null);

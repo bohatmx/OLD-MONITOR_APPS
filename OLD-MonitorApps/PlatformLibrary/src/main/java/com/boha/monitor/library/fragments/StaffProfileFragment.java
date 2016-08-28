@@ -211,12 +211,12 @@ public class StaffProfileFragment extends Fragment implements PageFragment {
             }
 
             @Override
-            public void onError(String message) {
+            public void onError(final String message) {
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            listener.setBusy(false);
+                            Log.d(TAG, "getRemotePhotos: run: " + message);
                         }
                     });
                 }

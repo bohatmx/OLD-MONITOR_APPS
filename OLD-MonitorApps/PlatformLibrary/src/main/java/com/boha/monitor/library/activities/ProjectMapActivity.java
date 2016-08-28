@@ -12,9 +12,9 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
-import android.location.LocationListener;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -39,10 +39,17 @@ import com.boha.monitor.library.util.Statics;
 import com.boha.monitor.library.util.ThemeChooser;
 import com.boha.monitor.library.util.Util;
 import com.boha.platform.library.R;
+import com.google.android.gms.awareness.Awareness;
+import com.google.android.gms.awareness.snapshot.LocationResult;
+import com.google.android.gms.awareness.snapshot.PlacesResult;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.ErrorDialogFragment;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.PlaceLikelihood;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -62,12 +69,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
+import hugo.weaving.DebugLog;
+
 public class ProjectMapActivity extends AppCompatActivity
-        implements LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, OnMapReadyCallback {
+        implements LocationListener,
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, OnMapReadyCallback {
 
     GoogleMap googleMap;
     GoogleApiClient mGoogleApiClient;
-    LocationRequest locationRequest;
     Location location;
     Context ctx;
 
@@ -106,12 +115,21 @@ public class ProjectMapActivity extends AppCompatActivity
         theme.resolveAttribute(R.attr.colorPrimary, typedValue, true);
         themePrimaryColor = typedValue.data;
 
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
+                .addApi(LocationServices.API)
+                .addApi(Awareness.API)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .build();
+        mGoogleApiClient.connect();
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_project_map);
 
         response = (ResponseDTO) getIntent().getSerializableExtra("projects");
         projectList = response.getProjectList();
         type = getIntent().getIntExtra("type", 0);
+
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -200,40 +218,10 @@ public class ProjectMapActivity extends AppCompatActivity
 
             return;
         }
+        getLocation();
         googleMap.setMyLocationEnabled(true);
         googleMap.setBuildingsEnabled(true);
 
-        googleMap.setOnMyLocationChangeListener(new GoogleMap.OnMyLocationChangeListener() {
-            @Override
-            public void onMyLocationChange(Location loc) {
-                location = loc;
-            }
-        });
-        //TODO - remove after test
-//        googleMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-//            @Override
-//            public void onMapClick(final LatLng latLng) {
-//                project = projectList.get(index);
-//                index++;
-//                if (index == projectList.size()) {
-//                    return;
-//                }
-//                final AlertDialog.Builder d = new AlertDialog.Builder(activity);
-//                d.setTitle("Project Location")
-//                        .setMessage("Do you want to set location for " + project.getProjectName())
-//                        .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-//                            @Override
-//                            public void onClick(DialogInterface dialog, int which) {
-//                                temporaryWork(latLng);
-//                            }
-//                        })
-//                        .setNegativeButton("No", new DialogInterface.OnClickListener() {
-//                            @Override
-//                            public void onClick(DialogInterface dialog, int which) {
-//                            }
-//                        }).show();
-//            }
-//        });
         googleMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(Marker marker) {
@@ -268,6 +256,7 @@ public class ProjectMapActivity extends AppCompatActivity
             case MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    getLocation();
                     setGoogleMap();
 
                 } else {
@@ -345,6 +334,7 @@ public class ProjectMapActivity extends AppCompatActivity
             public void onMapLoaded() {
                 //ensure that all markers in bounds
                 if (useSmallIcons) {
+                    Log.i(TAG, "onMapLoaded: useSmallIcons = true. markers: " + markers.size());
                     LatLngBounds.Builder builder = new LatLngBounds.Builder();
                     for (Marker marker : markers) {
                         builder.include(marker.getPosition());
@@ -357,6 +347,7 @@ public class ProjectMapActivity extends AppCompatActivity
                     txtCount.setText("" + markers.size());
                     googleMap.animateCamera(cu);
                 } else {
+                    Log.w(TAG, "onMapLoaded: useSmallIcons = false. markers: " + markers.size());
                     LatLng pnt = markers.get(getMarkerIndex()).getPosition();
                     googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(pnt, 1.0f));
                     if (projectList.size() == 1) {
@@ -506,48 +497,50 @@ public class ProjectMapActivity extends AppCompatActivity
         return super.onOptionsItemSelected(item);
     }
 
+    private static final float ACCURACY_THRESHOLD = 30;
+    boolean directionRequired;
     @Override
     public void onLocationChanged(Location location) {
-        this.location = location;
-        Log.e(LOG, "####### onLocationChanged");
-    }
+        Log.d(TAG, "onLocationChanged " + location.getLatitude()
+                + " " + location.getLongitude() + " " + location.getAccuracy());
 
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
+        if (location.getAccuracy() <= ACCURACY_THRESHOLD) {
+            this.location = location;
+            stopLocationUpdates();
+            mRequestingLocationUpdates = false;
 
-    }
+            if (directionRequired) {
+                directionRequired = false;
+                Log.i(TAG, "startDirectionsMap ..........");
+                String url = "http://maps.google.com/maps?saddr="
+                        + this.location.getLatitude() + "," + this.location.getLongitude()
+                        + "&daddr=" + project.getLatitude() + "," + project.getLongitude() + "&mode=driving";
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.setClassName("com.google.android.apps.maps",
+                        "com.google.android.maps.MapsActivity");
+                startActivity(intent);
+            }
 
-    /**
-     * Called when the provider is enabled by the user.
-     *
-     * @param provider the name of the location provider associated with this
-     *                 update.
-     */
-    @Override
-    public void onProviderEnabled(String provider) {
 
-    }
-
-    /**
-     * Called when the provider is disabled by the user. If requestLocationUpdates
-     * is called on an already disabled provider, this method is called
-     * immediately.
-     *
-     * @param provider the name of the location provider associated with this
-     *                 update.
-     */
-    @Override
-    public void onProviderDisabled(String provider) {
+        }
 
     }
+    @DebugLog
+    protected void stopLocationUpdates() {
+        Log.e(TAG, "### stopLocationUpdates ...");
+        if (mGoogleApiClient.isConnected()) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(
+                    mGoogleApiClient, this);
+            mRequestingLocationUpdates = false;
+        }
+    }
+
 
     @Override
     protected void onStart() {
         super.onStart();
         Log.e(LOG, "################ onStart .... connect API and location clients ");
-        if (!mResolvingError) {  // more about this later
-            //mGoogleApiClient.connect();
-        }
+        mGoogleApiClient.connect();
 
     }
 
@@ -565,11 +558,36 @@ public class ProjectMapActivity extends AppCompatActivity
 
     @Override
     public void onConnected(Bundle bundle) {
-        Log.e(LOG, "########### onConnected .... what is in the bundle...?");
-
-
+        Log.e(LOG, "########### onConnected .... get location...?");
+        mLocationRequest = LocationRequest.create();
+        mLocationRequest.setInterval(1000);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setFastestInterval(500);
+        startLocationUpdates();
     }
+    LocationRequest mLocationRequest;
+    @DebugLog
+    protected void startLocationUpdates() {
+        Log.d(TAG, "### startLocationUpdates ....");
+        if (mGoogleApiClient.isConnected()) {
+            mRequestingLocationUpdates = true;
+            int permissionCheck = ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION);
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+                return;
+            }
+            LocationServices.FusedLocationApi.requestLocationUpdates(
+                    mGoogleApiClient, mLocationRequest, this);
+            Log.d(TAG, "## GoogleApiClient connected, requesting location updates ...");
+        } else {
+            Log.e(TAG, "------- GoogleApiClient is NOT connected, not sure where we are...");
+            mGoogleApiClient.connect();
 
+        }
+    }
     @Override
     public void onConnectionSuspended(int i) {
 
@@ -948,5 +966,58 @@ public class ProjectMapActivity extends AppCompatActivity
     public void onMapReady(GoogleMap googleMap) {
         this.googleMap = googleMap;
         setGoogleMap();
+    }
+
+    private void getLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            int permissionCheck = ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION);
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+                return;
+            }
+
+            return;
+        }
+        Awareness.SnapshotApi.getLocation(mGoogleApiClient)
+                .setResultCallback(new ResultCallback<LocationResult>() {
+                    @Override
+                    public void onResult(@NonNull LocationResult locationResult) {
+                        if (!locationResult.getStatus().isSuccess()) {
+                            Log.e(TAG, "###########Could not get location.");
+                            return;
+                        }
+                        location = locationResult.getLocation();
+                        Log.i(TAG, ".................onConnected: snapshot: Lat: "
+                                + location.getLatitude() + ", Lon: "
+                                + location.getLongitude());
+                        if (googleMap != null) {
+                            onMapReady(googleMap);
+                        }
+                    }
+                });
+
+        Awareness.SnapshotApi.getPlaces(mGoogleApiClient)
+                .setResultCallback(new ResultCallback<PlacesResult>() {
+                    @Override
+                    public void onResult(@NonNull PlacesResult placesResult) {
+                        if (!placesResult.getStatus().isSuccess()) {
+                            Log.e(TAG, "Could not get places.");
+                            return;
+                        }
+                        List<PlaceLikelihood> placeLikelihoodList = placesResult.getPlaceLikelihoods();
+                        // Show the top 5 possible location results.
+                        if (placeLikelihoodList != null) {
+                            for (int i = 0; i < 5 && i < placeLikelihoodList.size(); i++) {
+                                PlaceLikelihood p = placeLikelihoodList.get(i);
+                                Log.i(TAG, p.getPlace().getName().toString() + ", likelihood: " + p.getLikelihood());
+                            }
+                        } else {
+                            Log.e(TAG, "Place is null.");
+                        }
+                    }
+                });
     }
 }

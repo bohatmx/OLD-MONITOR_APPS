@@ -98,6 +98,19 @@ public class Util {
             }
         });
         snackbar.setActionTextColor(Color.parseColor(color));
+        snackbar.show();
+        return snackbar;
+    }
+    public static Snackbar createSnackBar(View view,String title) {
+        final Snackbar snackbar = Snackbar.make(view,title, Snackbar.LENGTH_LONG);
+        snackbar.setAction("OK", new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                snackbar.dismiss();
+            }
+        });
+        snackbar.setActionTextColor(Color.parseColor("WHITE"));
+        snackbar.show();
         return snackbar;
     }
     @SuppressLint("NewApi")
