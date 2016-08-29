@@ -91,6 +91,7 @@ import java.util.List;
 import hugo.weaving.DebugLog;
 
 import static com.boha.monitor.library.activities.ProjectMapActivity.MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION;
+import static com.boha.monitor.library.util.Util.createSnackBar;
 
 /**
  * This class is the main activity that receives control from
@@ -183,15 +184,15 @@ public class StaffMainActivity extends AppCompatActivity implements
         Util.setCustomActionBar(getApplicationContext(), getSupportActionBar(),
                 SharedUtil.getCompany(ctx).getCompanyName(), "Project Monitoring",
                 ContextCompat.getDrawable(getApplicationContext(), com.boha.platform.library.R.drawable.glasses48));
-        getCache();
 
         LocalBroadcastManager bm = LocalBroadcastManager.getInstance(getApplicationContext());
         bm.registerReceiver(new PhotoBroadcastReceiver(), new IntentFilter(PhotoUploadService.BROADCAST_PHOTO_UPLOADED));
-        bm.registerReceiver(new MessageBroadcastReceiver(),new IntentFilter(StaffGCMListenerService.BROADCAST_MESSAGE_RECEIVED));
+        bm.registerReceiver(new MessageBroadcastReceiver(), new IntentFilter(StaffGCMListenerService.BROADCAST_MESSAGE_RECEIVED));
     }
 
 
     List<ProjectDTO> projectsList;
+
     private List<ProjectDTO> getProjectsLocationConfirmed() {
         projectsList = new ArrayList<>();
         for (ProjectDTO m : response.getProjectList()) {
@@ -211,14 +212,14 @@ public class StaffMainActivity extends AppCompatActivity implements
                 if (!response.getProjectList().isEmpty()) {
                     getProjectsLocationConfirmed();
                     buildPages();
-                } else {
-                    getRemoteStaffData(true);
                 }
+                getRemoteStaffData(false);
+
             }
 
             @Override
             public void onError(String message) {
-
+                Log.e(TAG, "onError....: " + message);
             }
         });
     }
@@ -227,11 +228,12 @@ public class StaffMainActivity extends AppCompatActivity implements
     private void getRemoteStaffData(boolean showBusy) {
         RequestDTO w = new RequestDTO(RequestDTO.GET_STAFF_DATA);
         w.setStaffID(SharedUtil.getCompanyStaff(ctx).getStaffID());
+        w.setZipResponse(false);
 
         companyDataRefreshed = false;
         setRefreshActionButtonState(showBusy);
         if (showBusy) {
-            Snackbar.make(mPager, "Refreshing your data, this may take a minute or two ...", Snackbar.LENGTH_LONG).show();
+            snackbar = Util.createSnackBar(mPager, "Refreshing your data, this may take a minute or two ...", "OK", "CYAN");
         }
         NetUtil.sendRequest(getApplicationContext(), w, new NetUtil.NetUtilListener() {
             @Override
@@ -240,18 +242,20 @@ public class StaffMainActivity extends AppCompatActivity implements
                     @Override
                     public void run() {
                         setRefreshActionButtonState(false);
+                        if (snackbar != null)
+                            snackbar.dismiss();
                         companyDataRefreshed = true;
                         response = r;
                         buildPages();
                         Snappy.saveData(response, ctx, new Snappy.SnappyWriteListener() {
                             @Override
                             public void onDataWritten() {
-
+                                Log.d(TAG, "onDataWritten: cached to snappy db");
                             }
 
                             @Override
                             public void onError(String message) {
-
+                                createSnackBar(mPager, message, "Not OK", "RED");
                             }
                         });
                     }
@@ -276,6 +280,8 @@ public class StaffMainActivity extends AppCompatActivity implements
             }
         });
     }
+
+    Snackbar snackbar;
 
     @DebugLog
     private void buildPages() {
@@ -634,7 +640,7 @@ public class StaffMainActivity extends AppCompatActivity implements
 
                         }
                         response.setProjectList(list);
-                        Snappy.saveData(response,ctx, null);
+                        Snappy.saveData(response, ctx, null);
                     }
 
                     @Override
@@ -913,7 +919,7 @@ public class StaffMainActivity extends AppCompatActivity implements
 
     @Override
     public void onDestinationSelected(int position, String text) {
-        Log.w(TAG, "onDestinationSelected: " + text );
+        Log.w(TAG, "onDestinationSelected: " + text);
 
         if (text.equalsIgnoreCase(ctx.getString(R.string.projects_on_map))) {
 
@@ -1052,10 +1058,11 @@ public class StaffMainActivity extends AppCompatActivity implements
     CompanyDTO company;
 
     private void doPhotoSnack(int count) {
-        Util.createSnackBar(mPager,"Photos uploaded: " + count, "OK", "GREEN");
+        createSnackBar(mPager, "Photos uploaded: " + count, "OK", "GREEN");
     }
+
     private void doMessageSnack(SimpleMessageDTO message) {
-        Util.createSnackBar(mPager,"Message received", "OK", "GREEN");
+        createSnackBar(mPager, "Message received", "OK", "GREEN");
     }
 
     private class PhotoBroadcastReceiver extends android.content.BroadcastReceiver {
@@ -1067,6 +1074,7 @@ public class StaffMainActivity extends AppCompatActivity implements
             doPhotoSnack(uploaded);
         }
     }
+
     private class MessageBroadcastReceiver extends BroadcastReceiver {
 
         @Override

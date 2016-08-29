@@ -1,7 +1,6 @@
 package com.boha.monitor.library.services;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.IntentService;
 import android.app.Service;
 import android.content.Intent;
@@ -11,8 +10,8 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
@@ -27,9 +26,11 @@ import com.boha.monitor.library.util.NetUtil;
 import com.boha.monitor.library.util.SharedUtil;
 import com.boha.monitor.library.util.WebCheck;
 import com.boha.platform.library.R;
+import com.google.android.gms.awareness.Awareness;
+import com.google.android.gms.awareness.snapshot.LocationResult;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
@@ -47,7 +48,6 @@ import java.util.Locale;
  * helper methods.
  */
 public class GPSLocationService extends Service implements
-        LocationListener,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
 
@@ -74,6 +74,7 @@ public class GPSLocationService extends Service implements
             mGoogleApiClient = new GoogleApiClient.Builder(this)
                     .addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
+                    .addApi(Awareness.API)
                     .addApi(LocationServices.API)
                     .build();
             mGoogleApiClient.connect();
@@ -84,30 +85,22 @@ public class GPSLocationService extends Service implements
         }
 
 
-        return 0;
+        return Service.START_STICKY;
     }
+
+    public static final String TAG = GPSLocationService.class.getSimpleName();
 
     @Override
     public void onConnected(Bundle bundle) {
         Log.w(LOG, "GPSLocationService onConnected: ");
-
-        mLocation = LocationServices.FusedLocationApi.getLastLocation(
-                mGoogleApiClient);
-
-        mLocationRequest = LocationRequest.create();
-        mLocationRequest.setInterval(10000);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setFastestInterval(2000);
-
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            Log.e(LOG, "ACCESS_FINE_LOCATION not permitted yet");
-            return;
-        }
         startLocationScan();
     }
-    static final int MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 5;
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
     private void startLocationScan() {
         Log.w(LOG, "startLocationScan");
 
@@ -116,60 +109,34 @@ public class GPSLocationService extends Service implements
             int permissionCheck = ContextCompat.checkSelfPermission(this,
                     Manifest.permission.ACCESS_FINE_LOCATION);
             if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions((Activity) getApplicationContext(),
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
                 return;
             }
 
             Log.w(LOG, "###### startLocationUpdates: " + new Date().toString());
             if (mGoogleApiClient.isConnected()) {
-                mRequestingLocationUpdates = true;
-                LocationServices.FusedLocationApi.requestLocationUpdates(
-                        mGoogleApiClient, mLocationRequest, this);
+                Awareness.SnapshotApi.getLocation(mGoogleApiClient)
+                        .setResultCallback(new ResultCallback<LocationResult>() {
+                            @Override
+                            public void onResult(@NonNull LocationResult locationResult) {
+                                if (!locationResult.getStatus().isSuccess()) {
+                                    Log.e(TAG, "###########Could not get location.");
+                                } else {
+                                    Log.w(TAG, "onResult: location found, accuracy: " + locationResult.getLocation().getAccuracy() );
+                                    mLocation = locationResult.getLocation();
+                                    if (simpleMessage == null) {
+                                        sendLocationTrack();
+                                    } else {
+                                        sendLocationResponse();
+                                    }
+                                }
+                            }
+                        });
             }
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-            Log.i(LOG,"startLocationScan, FusedLocationApi.requestLocationUpdates fired");
         }
-    }
-//    @Override
-//    public void onRequestPermissionsResult(int requestCode,
-//                                           String permissions[], int[] grantResults) {
-//        switch (requestCode) {
-//            case MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
-//                if (grantResults.length > 0
-//                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//                    startLocationScan();
-//
-//                } else {
-//                    throw new UnsupportedOperationException();
-//                }
-//                return;
-//            }
-//        }
-//    }
-    @Override
-    public void onConnectionSuspended(int i) {
-
     }
 
-    @Override
-    public void onLocationChanged(Location location) {
-        Log.w(LOG, "onLocationChanged, accuracy: " + location.getAccuracy());
-        if (location.getAccuracy() > ACCURACY_THRESHOLD) {
-            return;
-        }
-        mLocation = location;
-        if (simpleMessage == null) {
-            saveLocation();
-        } else {
-            sendLocationResponse();
-        }
-        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-        Log.e(LOG, "onLocationChanged: FusedLocationApi.removeLocationUpdates fired");
-    }
-    private void saveLocation() {
-        Log.d(LOG, "saveLocation, accuracy: " + mLocation.getAccuracy());
+    private void sendLocationTrack() {
+        Log.d(LOG, "sendLocationTrack, accuracy: " + mLocation.getAccuracy());
         final LocationTrackerDTO dto = new LocationTrackerDTO();
         StaffDTO s = SharedUtil.getCompanyStaff(
                 getApplicationContext());
@@ -185,7 +152,7 @@ public class GPSLocationService extends Service implements
         dto.setLongitude(mLocation.getLongitude());
         dto.setGcmDevice(SharedUtil.getGCMDevice(getApplicationContext()));
         if (dto.getGcmDevice().getGcmDeviceID() == null) {
-            Log.d(LOG,"GCMDeviceID is NULL, quitting saveLocation");
+            Log.d(LOG, "GCMDeviceID is NULL, quitting sendLocationTrack");
             return;
         }
         try {
@@ -218,6 +185,7 @@ public class GPSLocationService extends Service implements
 
 
     }
+
     private void sendLocationResponse() {
         final SimpleMessageDTO sm = new SimpleMessageDTO();
         sm.setSimpleMessageDestinationList(new ArrayList<SimpleMessageDestinationDTO>());
@@ -244,7 +212,7 @@ public class GPSLocationService extends Service implements
         try {
             dto.setGeocodedAddress(getAddress());
         } catch (Exception e) {
-            Log.w(LOG,"Geocoding not available");
+            Log.w(LOG, "Geocoding not available");
         }
 
         sm.setLocationTracker(dto);
@@ -290,7 +258,7 @@ public class GPSLocationService extends Service implements
         if (WebCheck.checkNetworkAvailability(getApplicationContext()).isNetworkUnavailable()) {
             return "Address not available";
         }
-        Log.d(LOG,"getAddress ...");
+        Log.d(LOG, "getAddress ...");
         Geocoder geocoder = new Geocoder(getApplicationContext(),
                 Locale.getDefault());
         try {
@@ -318,9 +286,10 @@ public class GPSLocationService extends Service implements
             return getString(R.string.no_address);
         }
     }
+
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
-        Log.e(LOG,"onConnectionFailed: " + connectionResult.toString());
+        Log.e(LOG, "onConnectionFailed: " + connectionResult.toString());
     }
 
     @Nullable
